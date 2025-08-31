@@ -8,7 +8,7 @@ const MAX_HALVING_PERIODS: u32 = 10; // Cap at 2^10 to prevent overflow
 const REWARDS_PER_MINUTE_TO_SECOND: u64 = 60;
 const MAX_PRICE_MULTIPLIER_HOURS: u64 = 4; // Cap price escalation at 4 hours (16x)
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("F96zBjzPDVyYFdzJAaH8rnkgJuusH3ecEh5Q2U7GffE5");
 
 #[program]
 pub mod milkerfun {

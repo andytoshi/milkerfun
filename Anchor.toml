@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-milkerfun = "11111111111111111111111111111111"
+milkerfun = "F96zBjzPDVyYFdzJAaH8rnkgJuusH3ecEh5Q2U7GffE5"
 
 [programs.mainnet]
-milkerfun = "11111111111111111111111111111111"
+milkerfun = "F96zBjzPDVyYFdzJAaH8rnkgJuusH3ecEh5Q2U7GffE5"
 
 [registry]
 url = "https://api.apr.dev"
