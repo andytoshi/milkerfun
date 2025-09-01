@@ -13,9 +13,9 @@ const TVL_NORMALIZATION: f64 = 100_000_000_000.0; // 100,000 MILK (6 decimals) -
 const MIN_REWARD_PER_DAY: u64 = 10_000_000; // 10 MILK per day (6 decimals) - R_min
 const GREED_MULTIPLIER: f64 = 5.0; // β
 const GREED_DECAY_PIVOT: f64 = 250.0; // C₀
-const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
+const INITIAL_TVL: u64 = 50_000_000_000_000; // 50M MILK (6 decimals)
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("3Jt5qxxkHpsCq5m8XLu1L6QFKFwyU3t2xbiM7x4YTPxm");
 
 #[program]
 pub mod milkerfun {
