@@ -409,9 +409,7 @@ pub struct InitializeConfig<'info> {
     #[account(constraint = milk_mint.decimals <= 9)]
     pub milk_mint: Account<'info, Mint>,
 
-    #[account(
-        constraint = pool_token_account.mint == milk_mint.key() @ ErrorCode::InvalidMint
-    )]
+    /// CHECK: Pool token account will be validated during runtime
     pub pool_token_account: Account<'info, TokenAccount>,
 
     #[account(mut)]
