@@ -5,17 +5,17 @@ const SECONDS_PER_DAY: i64 = 86400; // 24 * 60 * 60
 
 // Economic constants
 const COW_BASE_PRICE: u64 = 6_000_000_000; // 6,000 MILK (6 decimals)
-const PRICE_PIVOT: f64 = 1_500.0; // C_pivot
-const PRICE_STEEPNESS: f64 = 1.2; // α
-const REWARD_BASE: u64 = 100_000_000_000; // 100,000 MILK (6 decimals) - B
+const PRICE_PIVOT: f64 = 1_000.0; // C_pivot
+const PRICE_STEEPNESS: f64 = 1.0; // α
+const REWARD_BASE: u64 = 150_000_000_000; // 150,000 MILK (6 decimals) - B
 const REWARD_SENSITIVITY: f64 = 0.8; // α_reward
-const TVL_NORMALIZATION: f64 = 100_000_000_000.0; // 100,000 MILK (6 decimals) - S
+const TVL_NORMALIZATION: f64 = 50_000_000_000.0; // 100,000 MILK (6 decimals) - S
 const MIN_REWARD_PER_DAY: u64 = 10_000_000; // 10 MILK per day (6 decimals) - R_min
-const GREED_MULTIPLIER: f64 = 5.0; // β
-const GREED_DECAY_PIVOT: f64 = 250.0; // C₀
+const GREED_MULTIPLIER: f64 = 7.0; // β
+const GREED_DECAY_PIVOT: f64 = 400.0; // C₀
 const INITIAL_TVL: u64 = 50_000_000_000_000; // 50M MILK (6 decimals)
 
-declare_id!("3Jt5qxxkHpsCq5m8XLu1L6QFKFwyU3t2xbiM7x4YTPxm");
+declare_id!("11111111111111111111111111111111");
 
 #[program]
 pub mod milkerfun {
