@@ -97,12 +97,29 @@ async function main() {
     .add(createAccountIx)
     .add(initializeAccountIx);
   
-  await provider.sendAndConfirm(transaction, [wallet.payer, poolTokenAccountKeypair]);
+  const createTxSignature = await provider.sendAndConfirm(transaction, [wallet.payer, poolTokenAccountKeypair]);
+  console.log("Pool token account creation tx:", createTxSignature);
+
+  // Wait for account to be confirmed on-chain
+  console.log("Waiting for account confirmation...");
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  // Verify the account was created successfully
+  try {
+    const accountInfo = await provider.connection.getAccountInfo(poolTokenAccount);
+    if (!accountInfo) {
+      throw new Error("Pool token account was not created successfully");
+    }
+    console.log("✅ Pool token account confirmed on-chain");
+  } catch (error) {
+    console.error("❌ Failed to verify pool token account:", error.message);
+    process.exit(1);
+  }
 
   console.log("Pool Token Account:", poolTokenAccount.toString());
 
   // Initialize config
-  console.log("Initializing config...");
+  console.log("Initializing config with confirmed pool token account...");
   const tx = await program.methods
     .initializeConfig()
     .accountsPartial({
