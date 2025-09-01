@@ -66,61 +66,186 @@ async function main() {
   console.log("Config PDA:", configPda.toString());
   console.log("Pool Authority PDA:", poolAuthorityPda.toString());
 
-  // Create pool token account manually since PDA needs special handling
-  console.log("Creating pool token account...");
+  // Check if pool token account already exists
+  let poolTokenAccount: PublicKey;
   
-  // Use a regular token account instead of associated token account for PDA
-  const poolTokenAccountKeypair = anchor.web3.Keypair.generate();
-  const poolTokenAccount = poolTokenAccountKeypair.publicKey;
-  
-  // Calculate rent for token account
-  const tokenAccountSpace = 165; // Standard token account size
-  const rent = await provider.connection.getMinimumBalanceForRentExemption(tokenAccountSpace);
-  
-  // Create the token account transaction
-  const createAccountIx = SystemProgram.createAccount({
-    fromPubkey: wallet.publicKey,
-    newAccountPubkey: poolTokenAccount,
-    lamports: rent,
-    space: tokenAccountSpace,
-    programId: TOKEN_PROGRAM_ID,
-  });
-  
-  const initializeAccountIx = createInitializeAccountInstruction(
-    poolTokenAccount,
-    milkMint,
+  const existingPoolAccounts = await provider.connection.getTokenAccountsByOwner(
     poolAuthorityPda,
-    TOKEN_PROGRAM_ID
+    { mint: milkMint }
   );
+
+  if (existingPoolAccounts.value.length > 0) {
+    poolTokenAccount = existingPoolAccounts.value[0].pubkey;
+    console.log("✅ Found existing pool token account:", poolTokenAccount.toString());
+    
+    // Verify it's properly initialized with retry logic
+    let existingAccountVerified = false;
+    let verificationAttempts = 0;
+    const maxVerificationAttempts = 5;
+    
+    while (!existingAccountVerified && verificationAttempts < maxVerificationAttempts) {
+      try {
+        const accountInfo = await provider.connection.getAccountInfo(poolTokenAccount, 'finalized');
+        if (accountInfo && accountInfo.data.length === 165) { // Standard token account size
+          console.log("✅ Existing pool token account is properly initialized");
+          existingAccountVerified = true;
+          break;
+        } else {
+          throw new Error("Account not properly initialized or wrong size");
+        }
+      } catch (error) {
+        verificationAttempts++;
+        console.log(`⏳ Verifying existing account attempt ${verificationAttempts}/${maxVerificationAttempts}...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+    
+    if (!existingAccountVerified) {
+      console.error("❌ Existing pool token account could not be verified");
+      console.error("This might indicate the account is corrupted or not a proper token account");
+      console.error("You may need to create a new deployment with a fresh pool account");
+      throw new Error("Existing pool token account verification failed");
+    }
+  } else {
+    // Create pool token account manually since PDA needs special handling
+    console.log("Creating new pool token account...");
+    
+    // Use a regular token account instead of associated token account for PDA
+    const poolTokenAccountKeypair = anchor.web3.Keypair.generate();
+    poolTokenAccount = poolTokenAccountKeypair.publicKey;
+    
+    // Calculate rent for token account
+    const tokenAccountSpace = 165; // Standard token account size
+    const rent = await provider.connection.getMinimumBalanceForRentExemption(tokenAccountSpace);
+    
+    // Create the token account transaction
+    const createAccountIx = SystemProgram.createAccount({
+      fromPubkey: wallet.publicKey,
+      newAccountPubkey: poolTokenAccount,
+      lamports: rent,
+      space: tokenAccountSpace,
+      programId: TOKEN_PROGRAM_ID,
+    });
+    
+    const initializeAccountIx = createInitializeAccountInstruction(
+      poolTokenAccount,
+      milkMint,
+      poolAuthorityPda,
+      TOKEN_PROGRAM_ID
+    );
+    
+    const transaction = new Transaction()
+      .add(createAccountIx)
+      .add(initializeAccountIx);
+    
+    const createTxSignature = await provider.sendAndConfirm(transaction, [wallet.payer, poolTokenAccountKeypair]);
+    console.log("Pool token account creation tx:", createTxSignature);
+
+    // Wait for account to be confirmed on-chain with proper commitment
+    console.log("Waiting for account confirmation...");
+    await provider.connection.confirmTransaction(createTxSignature, 'finalized');
+    console.log("✅ Pool token account transaction finalized");
+    
+    // Additional wait to ensure account is fully propagated
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  }
   
-  const transaction = new Transaction()
-    .add(createAccountIx)
-    .add(initializeAccountIx);
+  // Final verification before proceeding with multiple attempts
+  let accountVerified = false;
+  let verificationAttempts = 0;
+  const maxVerificationAttempts = 10;
   
-  await provider.sendAndConfirm(transaction, [wallet.payer, poolTokenAccountKeypair]);
+  while (!accountVerified && verificationAttempts < maxVerificationAttempts) {
+    try {
+      const accountInfo = await provider.connection.getAccountInfo(poolTokenAccount, 'finalized');
+      if (accountInfo && accountInfo.data.length > 0) {
+        console.log("✅ Pool token account verified and initialized");
+        accountVerified = true;
+        break;
+      } else {
+        throw new Error("Account not properly initialized");
+      }
+    } catch (error) {
+      verificationAttempts++;
+      console.log(`⏳ Verification attempt ${verificationAttempts}/${maxVerificationAttempts} - waiting for account...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+  
+  if (!accountVerified) {
+    throw new Error("Pool token account could not be verified after multiple attempts");
+  }
 
   console.log("Pool Token Account:", poolTokenAccount.toString());
 
-  // Initialize config
-  console.log("Initializing config...");
-  const tx = await program.methods
-    .initializeConfig()
-    .accountsPartial({
-      milkMint: milkMint,
-      admin: wallet.publicKey,
-    })
-    .rpc();
+  // Initialize config with proper error handling
+  let tx;
+  console.log("Initializing config with verified pool token account...");
+  try {
+    tx = await program.methods
+      .initializeConfig()
+      .accountsPartial({
+        milkMint: milkMint,
+        poolTokenAccount: poolTokenAccount,
+        admin: wallet.publicKey,
+      })
+      .rpc({
+        commitment: 'finalized',
+        preflightCommitment: 'finalized',
+      });
+      
+    console.log("Initialize config transaction:", tx);
+    
+    // Wait for config transaction to be finalized
+    await provider.connection.confirmTransaction(tx, 'finalized');
+    console.log("✅ Config initialization transaction finalized");
+    
+  } catch (error) {
+    console.error("❌ Failed to initialize config:");
+    console.error("Error:", error.message);
+    if (error.logs) {
+      console.error("Program logs:");
+      error.logs.forEach(log => console.error(`  ${log}`));
+    }
+    throw error;
+  }
 
-  console.log("Initialize config transaction:", tx);
 
-  // Verify config
-  const config = await program.account.config.fetch(configPda);
+  // Wait for config account to be confirmed
+  console.log("Waiting for config account to be available...");
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  // Verify config with retry logic
+  let config;
+  let retries = 0;
+  const maxRetries = 5;
+  
+  while (retries < maxRetries) {
+    try {
+      config = await program.account.config.fetch(configPda, 'confirmed');
+      console.log("✅ Config account confirmed");
+      break;
+    } catch (error) {
+      retries++;
+      if (retries < maxRetries) {
+        console.log(`⏳ Config account not ready yet, retrying... (${retries}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      } else {
+        console.log("⚠️  Could not fetch config for verification, but transaction succeeded");
+        console.log("Transaction signature:", tx);
+        console.log("Config should be available shortly. You can verify with 'yarn check-status'");
+        return;
+      }
+    }
+  }
+  
   console.log("\n=== Configuration ===");
   console.log("Admin:", config.admin.toString());
   console.log("MILK Mint:", config.milkMint.toString());
-  console.log("Base Milk per Cow per Min:", config.baseMilkPerCowPerMin.toString());
-  console.log("Cow Initial Cost:", config.cowInitialCost.toString());
+  console.log("Pool Token Account:", config.poolTokenAccount.toString());
   console.log("Start Time:", new Date(config.startTime.toNumber() * 1000).toISOString());
+  console.log("Global Cows Count:", config.globalCowsCount.toString());
+  console.log("Initial TVL:", config.initialTvl.toString());
 
   console.log("\n=== Deployment Complete ===");
   console.log("Save these addresses for your frontend:");
@@ -134,6 +259,11 @@ async function main() {
   console.log("1. Fund the pool token account with MILK tokens using 'yarn fund-pool <amount>'");
   console.log("2. Users can run 'yarn user-setup' to create their token accounts");
   console.log("3. Run 'yarn check-status' to verify everything is working");
+  console.log("\n💡 Economic Model:");
+  console.log("- Dynamic cow pricing based on global supply");
+  console.log("- Dynamic rewards based on TVL/Cow ratio");
+  console.log("- Early adopter greed boost that decays over time");
+  console.log("- Anti-dump mechanism: lower TVL = higher rewards");
 }
 
 main().catch((error) => {

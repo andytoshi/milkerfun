@@ -67,8 +67,8 @@ async function testCompoundCows() {
     console.log("✅ Config loaded successfully");
     console.log("Config details:", {
       startTime: new Date(config.startTime.toNumber() * 1000).toISOString(),
-      baseMilkPerCowPerMin: config.baseMilkPerCowPerMin.toString(),
-      cowInitialCost: config.cowInitialCost.toString(),
+      globalCowsCount: config.globalCowsCount.toString(),
+      initialTvl: config.initialTvl.toString(),
     });
 
     // Check if farm exists
@@ -96,29 +96,31 @@ async function testCompoundCows() {
     const currentTime = Math.floor(Date.now() / 1000);
     const timeSinceUpdate = currentTime - farm.lastUpdateTime.toNumber();
     
-    // Calculate current reward rate
-    const daysElapsed = Math.floor((currentTime - config.startTime.toNumber()) / 86400);
-    const halvingPeriods = Math.floor(daysElapsed / 10);
-    const currentRate = Math.max(
-      config.baseMilkPerCowPerMin.toNumber() / Math.pow(2, halvingPeriods),
-      10_000_000 // minimum rate
-    );
+    // Use stored reward rate or calculate current
+    const storedRate = farm.lastRewardRate ? farm.lastRewardRate.toNumber() : 10_000_000; // 10 MILK/day default
+    const currentRate = storedRate;
     
-    const pendingRewards = (farm.cows.toNumber() * currentRate * timeSinceUpdate) / 60;
+    const pendingRewards = (farm.cows.toNumber() * currentRate * timeSinceUpdate) / 86400; // per day to per second
     const totalRewards = farm.accumulatedRewards.toNumber() + pendingRewards;
 
     console.log(`⏰ Time since last update: ${timeSinceUpdate} seconds`);
-    console.log(`⚡ Current reward rate: ${currentRate / 1_000_000} MILK/cow/min`);
+    console.log(`⚡ Current reward rate: ${currentRate / 1_000_000} MILK/cow/day`);
     console.log(`🔄 Pending rewards: ${pendingRewards / 1_000_000} MILK`);
     console.log(`💎 Total available rewards: ${totalRewards / 1_000_000} MILK`);
 
-    // Calculate current cow price
-    const elapsedHours = Math.floor((currentTime - config.startTime.toNumber()) / 3600);
-    const priceMultiplier = Math.pow(2, Math.min(elapsedHours, 4));
-    const currentCowPrice = config.cowInitialCost.toNumber() * priceMultiplier;
+    // Calculate dynamic cow price
+    const globalCows = config.globalCowsCount.toNumber();
+    let currentCowPrice = 6000; // base price in MILK
+    if (globalCows > 0) {
+      const ratio = globalCows / 1500.0;
+      const powerTerm = Math.pow(ratio, 1.2);
+      const multiplier = 1.0 + powerTerm;
+      currentCowPrice = 6000 * multiplier;
+    }
     
     console.log(`🏷️  Current cow price: ${currentCowPrice / 1_000_000} MILK`);
-    console.log(`📈 Price multiplier: ${priceMultiplier}x`);
+    console.log(`🌍 Global cows: ${globalCows}`);
+    console.log(`📈 Price multiplier: ${(currentCowPrice as f64 / 6_000_000_000.0).toFixed(4)}x`);
 
     // Calculate how many cows we can afford
     const maxAffordableCows = Math.floor(totalRewards / currentCowPrice);
@@ -139,7 +141,7 @@ async function testCompoundCows() {
 
     // Test compounding 1 cow (or max if less than 1)
     const numCows = Math.min(1, maxAffordableCows);
-    const totalCost = currentCowPrice * numCows;
+    const totalCost = (currentCowPrice * 1_000_000) * numCows; // Convert to raw tokens
 
     console.log(`\n🔄 Attempting to compound ${numCows} cow(s) using ${totalCost / 1_000_000} MILK rewards...`);
 
@@ -231,9 +233,10 @@ async function testCompoundCows() {
       console.log(`⏰ Last update: ${new Date(farmAfter.lastUpdateTime.toNumber() * 1000).toISOString()}`);
 
       // Calculate new earning potential
-      const newEarningRate = (farmAfter.cows.toNumber() * currentRate) / (60 * 1_000_000);
+      let newEarningRate = (farmAfter.cows.toNumber() * currentRate) / (86400 * 1_000_000); // per day to per second
       console.log(`📈 New earning rate: ${newEarningRate.toFixed(6)} MILK/second`);
-      console.log(`📈 New earning rate: ${(newEarningRate * 60).toFixed(4)} MILK/minute`);
+      console.log(`📈 New earning rate: ${(newEarningRate * 86400).toFixed(4)} MILK/day`);
+      console.log(`📈 New stored rate: ${farmAfter.lastRewardRate ? farmAfter.lastRewardRate.toNumber() / 1_000_000 : 'Not set'} MILK/cow/day`);
 
       // Transaction verification
       const actualCowIncrease = farmAfter.cows.toNumber() - farm.cows.toNumber();

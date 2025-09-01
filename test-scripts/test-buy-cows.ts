@@ -75,8 +75,8 @@ async function testBuyCows() {
       admin: config.admin.toString(),
       milkMint: config.milkMint.toString(),
       startTime: new Date(config.startTime.toNumber() * 1000).toISOString(),
-      baseMilkPerCowPerMin: config.baseMilkPerCowPerMin.toString(),
-      cowInitialCost: config.cowInitialCost.toString(),
+      globalCowsCount: config.globalCowsCount.toString(),
+      initialTvl: config.initialTvl.toString(),
     });
 
     // Get user token account
@@ -140,15 +140,24 @@ async function testBuyCows() {
       return;
     }
 
-    // Calculate current cow price
-    const currentTime = Math.floor(Date.now() / 1000);
-    const elapsedHours = Math.floor((currentTime - config.startTime.toNumber()) / 3600);
-    const priceMultiplier = Math.pow(2, Math.min(elapsedHours, 4));
-    const currentCowPrice = (config.cowInitialCost.toNumber() * priceMultiplier) / 1_000_000;
+    // Calculate dynamic cow price based on global count
+    const globalCows = config.globalCowsCount.toNumber();
+    let currentCowPrice = 6000; // base price
+    if (globalCows > 0) {
+      const ratio = globalCows / 1500;
+      const powerTerm = Math.pow(ratio, 1.2);
+      const multiplier = 1 + powerTerm;
+      currentCowPrice = 6000 * multiplier;
+    }
     
     console.log(`🏷️  Current cow price: ${currentCowPrice} MILK`);
-    console.log(`⏰ Hours elapsed: ${elapsedHours}`);
-    console.log(`📈 Price multiplier: ${priceMultiplier}x`);
+    console.log(`🌍 Global cows: ${globalCows}`);
+    console.log(`📈 Price multiplier: ${(currentCowPrice / 6000).toFixed(4)}x`);
+    
+    // Show greed multiplier
+    const greedDecay = Math.exp(-globalCows / 250);
+    const greedMultiplier = 1 + (5 * greedDecay);
+    console.log(`🚀 Current greed boost: ${greedMultiplier.toFixed(4)}x`);
 
     // Test buying 1 cow
     const numCows = 1;

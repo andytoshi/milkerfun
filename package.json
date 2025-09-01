@@ -13,6 +13,8 @@
     "check-status": "ts-node scripts/check-status.ts",
     "fund-pool": "ts-node scripts/fund-pool.ts",
     "get-pool-address": "ts-node scripts/get-pool-address.ts",
+    "get-global-stats": "ts-node scripts/get-global-stats.ts",
+    "admin-v3-migration": "ts-node scripts/admin-v3-migration.ts",
     "test-buy": "ts-node test-scripts/test-buy-cows.ts",
     "test-withdraw": "ts-node test-scripts/test-withdraw-milk.ts",
     "test-compound": "ts-node test-scripts/test-compound-cows.ts",
