@@ -2,7 +2,6 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 const SECONDS_PER_DAY: i64 = 86400; // 24 * 60 * 60
-const REWARDS_PER_MINUTE_TO_SECOND: u64 = 60;
 
 // Economic constants
 const COW_BASE_PRICE: u64 = 6_000_000_000; // 6,000 MILK (6 decimals)
@@ -16,7 +15,7 @@ const GREED_MULTIPLIER: f64 = 5.0; // β
 const GREED_DECAY_PIVOT: f64 = 250.0; // C₀
 const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("HQEjyRKxh27KBhwumUsY3jxZm54vGyivj8pNDNSBdoPi");
 
 #[program]
 pub mod milkerfun {
@@ -115,10 +114,10 @@ pub mod milkerfun {
         let total_rewards = farm.accumulated_rewards;
         
         // Check if withdrawal is within 24 hours of last withdrawal
-        let hours_since_last_withdraw = if farm.last_withdraw_time.toNumber() == 0 {
+        let hours_since_last_withdraw = if farm.last_withdraw_time == 0 {
             25 // First withdrawal - no penalty
         } else {
-            (current_time - farm.last_withdraw_time.toNumber()) / 3600 // Convert to hours
+            (current_time - farm.last_withdraw_time) / 3600 // Convert to hours
         };
         
         let (withdrawal_amount, penalty_amount) = if hours_since_last_withdraw >= 24 {
@@ -159,7 +158,7 @@ pub mod milkerfun {
 
         // Reset accumulated rewards and update last withdraw time
         farm.accumulated_rewards = 0;
-        farm.last_withdraw_time.set_inner(current_time);
+        farm.last_withdraw_time = current_time;
 
         if penalty_amount > 0 {
             msg!("Successfully withdrew {} MILK tokens with {} MILK penalty remaining in pool", 

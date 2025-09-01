@@ -9,7 +9,7 @@ skip-lint = false
 milkerfun = "11111111111111111111111111111111"
 
 [programs.mainnet]
-milkerfun = "11111111111111111111111111111111"
+milkerfun = "HQEjyRKxh27KBhwumUsY3jxZm54vGyivj8pNDNSBdoPi"
 
 [registry]
 url = "https://api.apr.dev"
