@@ -13,6 +13,7 @@ const TVL_NORMALIZATION: f64 = 100_000_000_000.0; // 100,000 MILK (6 decimals) -
 const MIN_REWARD_PER_DAY: u64 = 10_000_000; // 10 MILK per day (6 decimals) - R_min
 const GREED_MULTIPLIER: f64 = 5.0; // β
 const GREED_DECAY_PIVOT: f64 = 250.0; // C₀
+const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
 
 declare_id!("11111111111111111111111111111111");
 
@@ -29,9 +30,10 @@ pub mod milkerfun {
         config.pool_token_account = ctx.accounts.pool_token_account.key();
         config.start_time = current_time;
         config.global_cows_count = 0;
+        config.initial_tvl = INITIAL_TVL;
         
-        msg!("Config initialized - Start time: {}, Pool: {}", 
-             current_time, config.pool_token_account);
+        msg!("Config initialized - Start time: {}, Initial TVL: {} MILK, Pool: {}", 
+             current_time, INITIAL_TVL / 1_000_000, config.pool_token_account);
         Ok(())
     }
 
@@ -380,6 +382,7 @@ pub struct Config {
     pub pool_token_account: Pubkey,      // 32 bytes
     pub start_time: i64,                 // 8 bytes
     pub global_cows_count: u64,          // 8 bytes
+    pub initial_tvl: u64,                // 8 bytes - for reference
 }
 
 #[account]
@@ -398,7 +401,6 @@ pub struct InitializeConfig<'info> {
         init,
         payer = admin,
         space = 8 + 32 + 32 + 32 + 8 + 8 + 8, // discriminator + Config struct
-        space = 8 + 32 + 32 + 32 + 8 + 8, // discriminator + Config struct
         seeds = [b"config"],
         bump
     )]
