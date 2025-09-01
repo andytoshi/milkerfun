@@ -15,7 +15,7 @@ const GREED_MULTIPLIER: f64 = 5.0; // β
 const GREED_DECAY_PIVOT: f64 = 250.0; // C₀
 const INITIAL_TVL: u64 = 50_000_000_000_000; // 50M MILK (6 decimals)
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("Aknxju7fmwfMMzneFJxqeWSnEeT7fKeo9c8o3fKkaPT8");
 
 #[program]
 pub mod milkerfun {
