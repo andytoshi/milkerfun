@@ -11,7 +11,7 @@ import * as os from "os";
 
 // MILK token mint addresses
 const MILK_MINT_DEVNET = new PublicKey("H5b47NLbNgTAAMpz3rZKAfcoJ2JdGWKcEuEK51ghCbbY");
-const MILK_MINT_MAINNET = new PublicKey("11111111111111111111111111111111"); //change for mainnet
+const MILK_MINT_MAINNET = new PublicKey("H5b47NLbNgTAAMpz3rZKAfcoJ2JdGWKcEuEK51ghCbbY"); //change for mainnet
 
 /**
  * Deployment setup script for MilkerFun
@@ -78,14 +78,33 @@ async function main() {
     poolTokenAccount = existingPoolAccounts.value[0].pubkey;
     console.log("✅ Found existing pool token account:", poolTokenAccount.toString());
     
-    // Verify it's properly initialized
-    try {
-      const accountInfo = await provider.connection.getAccountInfo(poolTokenAccount, 'confirmed');
-      if (accountInfo) {
-        console.log("✅ Pool token account is properly initialized");
+    // Verify it's properly initialized with retry logic
+    let existingAccountVerified = false;
+    let verificationAttempts = 0;
+    const maxVerificationAttempts = 5;
+    
+    while (!existingAccountVerified && verificationAttempts < maxVerificationAttempts) {
+      try {
+        const accountInfo = await provider.connection.getAccountInfo(poolTokenAccount, 'finalized');
+        if (accountInfo && accountInfo.data.length === 165) { // Standard token account size
+          console.log("✅ Existing pool token account is properly initialized");
+          existingAccountVerified = true;
+          break;
+        } else {
+          throw new Error("Account not properly initialized or wrong size");
+        }
+      } catch (error) {
+        verificationAttempts++;
+        console.log(`⏳ Verifying existing account attempt ${verificationAttempts}/${maxVerificationAttempts}...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
-    } catch (error) {
-      console.log("⚠️  Could not verify account, but proceeding...");
+    }
+    
+    if (!existingAccountVerified) {
+      console.error("❌ Existing pool token account could not be verified");
+      console.error("This might indicate the account is corrupted or not a proper token account");
+      console.error("You may need to create a new deployment with a fresh pool account");
+      throw new Error("Existing pool token account verification failed");
     }
   } else {
     // Create pool token account manually since PDA needs special handling
@@ -122,47 +141,79 @@ async function main() {
     const createTxSignature = await provider.sendAndConfirm(transaction, [wallet.payer, poolTokenAccountKeypair]);
     console.log("Pool token account creation tx:", createTxSignature);
 
-    // Wait for account to be confirmed on-chain
+    // Wait for account to be confirmed on-chain with proper commitment
     console.log("Waiting for account confirmation...");
-    await new Promise(resolve => setTimeout(resolve, 10000));
+    await provider.connection.confirmTransaction(createTxSignature, 'finalized');
+    console.log("✅ Pool token account transaction finalized");
+    
+    // Additional wait to ensure account is fully propagated
+    await new Promise(resolve => setTimeout(resolve, 3000));
   }
   
-  // Final verification before proceeding
-  try {
-    const accountInfo = await provider.connection.getAccountInfo(poolTokenAccount, 'confirmed');
-    if (!accountInfo) {
-      console.log("⚠️  Account not found with 'confirmed' commitment, trying 'finalized'...");
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      const finalizedAccountInfo = await provider.connection.getAccountInfo(poolTokenAccount, 'finalized');
-      if (!finalizedAccountInfo) {
-        throw new Error("Pool token account was not created successfully");
+  // Final verification before proceeding with multiple attempts
+  let accountVerified = false;
+  let verificationAttempts = 0;
+  const maxVerificationAttempts = 10;
+  
+  while (!accountVerified && verificationAttempts < maxVerificationAttempts) {
+    try {
+      const accountInfo = await provider.connection.getAccountInfo(poolTokenAccount, 'finalized');
+      if (accountInfo && accountInfo.data.length > 0) {
+        console.log("✅ Pool token account verified and initialized");
+        accountVerified = true;
+        break;
+      } else {
+        throw new Error("Account not properly initialized");
       }
-      console.log("✅ Pool token account confirmed with 'finalized' commitment");
-    } else {
-      console.log("✅ Pool token account confirmed on-chain");
+    } catch (error) {
+      verificationAttempts++;
+      console.log(`⏳ Verification attempt ${verificationAttempts}/${maxVerificationAttempts} - waiting for account...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
-  } catch (error) {
-    console.log("⚠️  Could not verify pool token account, but proceeding...");
+  }
+  
+  if (!accountVerified) {
+    throw new Error("Pool token account could not be verified after multiple attempts");
   }
 
   console.log("Pool Token Account:", poolTokenAccount.toString());
 
-  // Initialize config
-  console.log("Initializing config with confirmed pool token account...");
-  const tx = await program.methods
-    .initializeConfig()
-    .accountsPartial({
-      milkMint: milkMint,
-      poolTokenAccount: poolTokenAccount,
-      admin: wallet.publicKey,
-    })
-    .rpc();
+  // Initialize config with proper error handling
+  let tx;
+  console.log("Initializing config with verified pool token account...");
+  try {
+    tx = await program.methods
+      .initializeConfig()
+      .accountsPartial({
+        milkMint: milkMint,
+        poolTokenAccount: poolTokenAccount,
+        admin: wallet.publicKey,
+      })
+      .rpc({
+        commitment: 'finalized',
+        preflightCommitment: 'finalized',
+      });
+      
+    console.log("Initialize config transaction:", tx);
+    
+    // Wait for config transaction to be finalized
+    await provider.connection.confirmTransaction(tx, 'finalized');
+    console.log("✅ Config initialization transaction finalized");
+    
+  } catch (error) {
+    console.error("❌ Failed to initialize config:");
+    console.error("Error:", error.message);
+    if (error.logs) {
+      console.error("Program logs:");
+      error.logs.forEach(log => console.error(`  ${log}`));
+    }
+    throw error;
+  }
 
-  console.log("Initialize config transaction:", tx);
 
   // Wait for config account to be confirmed
-  console.log("Waiting for config account confirmation...");
-  await new Promise(resolve => setTimeout(resolve, 10000));
+  console.log("Waiting for config account to be available...");
+  await new Promise(resolve => setTimeout(resolve, 3000));
   
   // Verify config with retry logic
   let config;
