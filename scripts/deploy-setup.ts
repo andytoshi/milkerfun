@@ -124,7 +124,7 @@ async function main() {
 
     // Wait for account to be confirmed on-chain
     console.log("Waiting for account confirmation...");
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise(resolve => setTimeout(resolve, 10000));
   }
   
   // Final verification before proceeding
@@ -162,7 +162,7 @@ async function main() {
 
   // Wait for config account to be confirmed
   console.log("Waiting for config account confirmation...");
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  await new Promise(resolve => setTimeout(resolve, 10000));
   
   // Verify config with retry logic
   let config;
