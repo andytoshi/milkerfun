@@ -75,6 +75,7 @@ async function testWithdrawMilk() {
       admin: config.admin.toString(),
       milkMint: config.milkMint.toString(),
       startTime: new Date(config.startTime.toNumber() * 1000).toISOString(),
+      globalCowsCount: config.globalCowsCount.toString(),
     });
 
     // Check if farm exists
@@ -102,19 +103,14 @@ async function testWithdrawMilk() {
     const currentTime = Math.floor(Date.now() / 1000);
     const timeSinceUpdate = currentTime - farm.lastUpdateTime.toNumber();
     
-    // Calculate current reward rate
-    const daysElapsed = Math.floor((currentTime - config.startTime.toNumber()) / 86400);
-    const halvingPeriods = Math.floor(daysElapsed / 10);
-    const currentRate = Math.max(
-      config.baseMilkPerCowPerMin.toNumber() / Math.pow(2, halvingPeriods),
-      10_000_000 // minimum rate
-    );
+    // Use stored reward rate
+    const storedRate = farm.lastRewardRate ? farm.lastRewardRate.toNumber() : 10_000_000; // 10 MILK/day default
     
-    const pendingRewards = (farm.cows.toNumber() * currentRate * timeSinceUpdate) / (60 * 1_000_000);
+    const pendingRewards = (farm.cows.toNumber() * storedRate * timeSinceUpdate) / (86400 * 1_000_000); // per day to per second
     const totalRewards = (farm.accumulatedRewards.toNumber() / 1_000_000) + pendingRewards;
 
     console.log(`⏰ Time since last update: ${timeSinceUpdate} seconds`);
-    console.log(`⚡ Current reward rate: ${currentRate / 1_000_000} MILK/cow/min`);
+    console.log(`⚡ Stored reward rate: ${storedRate / 1_000_000} MILK/cow/day`);
     console.log(`🔄 Pending rewards: ${pendingRewards.toFixed(6)} MILK`);
     console.log(`💎 Total withdrawable: ${totalRewards.toFixed(6)} MILK`);
 
@@ -252,6 +248,19 @@ async function testWithdrawMilk() {
       console.log(`💎 MILK received: ${milkReceived}`);
       console.log(`🔄 Accumulated rewards after: ${farmAfter.accumulatedRewards.toNumber() / 1_000_000} MILK`);
       console.log(`⏰ Last update time: ${new Date(farmAfter.lastUpdateTime.toNumber() * 1000).toISOString()}`);
+      
+      // Check if penalty was applied
+      const expectedWithdrawal = totalRewards / 1_000_000;
+      const actualWithdrawal = milkReceived;
+      const penaltyApplied = actualWithdrawal < (expectedWithdrawal * 0.9); // Allow for small rounding
+      
+      if (penaltyApplied) {
+        const penaltyAmount = expectedWithdrawal - actualWithdrawal;
+        console.log(`⚠️  Penalty applied: ${penaltyAmount.toFixed(6)} MILK stayed in pool`);
+        console.log(`📊 Penalty rate: ${((penaltyAmount / expectedWithdrawal) * 100).toFixed(1)}%`);
+      } else {
+        console.log(`✅ No penalty applied - penalty-free withdrawal`);
+      }
 
       // Verify the transaction worked as expected
       const actualRewardsCleared = farm.accumulatedRewards.toNumber() - farmAfter.accumulatedRewards.toNumber();

@@ -11,7 +11,7 @@ import * as os from "os";
 
 // MILK token mint addresses
 const MILK_MINT_DEVNET = new PublicKey("H5b47NLbNgTAAMpz3rZKAfcoJ2JdGWKcEuEK51ghCbbY");
-const MILK_MINT_MAINNET = new PublicKey("H5b47NLbNgTAAMpz3rZKAfcoJ2JdGWKcEuEK51ghCbbY"); //change for mainnet
+const MILK_MINT_MAINNET = new PublicKey("11111111111111111111111111111111"); //change for mainnet
 
 /**
  * Deployment setup script for MilkerFun
@@ -107,6 +107,7 @@ async function main() {
     .initializeConfig()
     .accountsPartial({
       milkMint: milkMint,
+      poolTokenAccount: poolTokenAccount,
       admin: wallet.publicKey,
     })
     .rpc();
@@ -118,9 +119,10 @@ async function main() {
   console.log("\n=== Configuration ===");
   console.log("Admin:", config.admin.toString());
   console.log("MILK Mint:", config.milkMint.toString());
-  console.log("Base Milk per Cow per Min:", config.baseMilkPerCowPerMin.toString());
-  console.log("Cow Initial Cost:", config.cowInitialCost.toString());
+  console.log("Pool Token Account:", config.poolTokenAccount.toString());
   console.log("Start Time:", new Date(config.startTime.toNumber() * 1000).toISOString());
+  console.log("Global Cows Count:", config.globalCowsCount.toString());
+  console.log("Initial TVL:", config.initialTvl.toString());
 
   console.log("\n=== Deployment Complete ===");
   console.log("Save these addresses for your frontend:");
@@ -134,6 +136,11 @@ async function main() {
   console.log("1. Fund the pool token account with MILK tokens using 'yarn fund-pool <amount>'");
   console.log("2. Users can run 'yarn user-setup' to create their token accounts");
   console.log("3. Run 'yarn check-status' to verify everything is working");
+  console.log("\n💡 Economic Model:");
+  console.log("- Dynamic cow pricing based on global supply");
+  console.log("- Dynamic rewards based on TVL/Cow ratio");
+  console.log("- Early adopter greed boost that decays over time");
+  console.log("- Anti-dump mechanism: lower TVL = higher rewards");
 }
 
 main().catch((error) => {
