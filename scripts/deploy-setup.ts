@@ -160,8 +160,34 @@ async function main() {
 
   console.log("Initialize config transaction:", tx);
 
-  // Verify config
-  const config = await program.account.config.fetch(configPda);
+  // Wait for config account to be confirmed
+  console.log("Waiting for config account confirmation...");
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  
+  // Verify config with retry logic
+  let config;
+  let retries = 0;
+  const maxRetries = 5;
+  
+  while (retries < maxRetries) {
+    try {
+      config = await program.account.config.fetch(configPda, 'confirmed');
+      console.log("✅ Config account confirmed");
+      break;
+    } catch (error) {
+      retries++;
+      if (retries < maxRetries) {
+        console.log(`⏳ Config account not ready yet, retrying... (${retries}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      } else {
+        console.log("⚠️  Could not fetch config for verification, but transaction succeeded");
+        console.log("Transaction signature:", tx);
+        console.log("Config should be available shortly. You can verify with 'yarn check-status'");
+        return;
+      }
+    }
+  }
+  
   console.log("\n=== Configuration ===");
   console.log("Admin:", config.admin.toString());
   console.log("MILK Mint:", config.milkMint.toString());
