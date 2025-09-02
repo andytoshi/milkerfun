@@ -1,9 +1,9 @@
-# MilkerFun: Advanced Tokenomics Whitepaper
-*A Revolutionary Idle Farming Game with Dynamic Economic Mechanisms*
+# MilkerFun: We reimagined DeFi on Solana. Every crash = more cash.
+*A Revolutionary yield farming protocol with Dynamic Economic Mechanisms*
 
 ## Abstract
 
-MilkerFun represents a breakthrough in decentralized gaming economics, implementing sophisticated mathematical models that create sustainable, anti-inflationary tokenomics through dynamic pricing and reward mechanisms. This whitepaper presents the complete economic framework, mathematical formulations, and behavioral analysis of our innovative cow farming ecosystem.
+MilkerFun represents a breakthrough in DeFi, implementing sophisticated mathematical models that create sustainable, anti-inflationary tokenomics through dynamic pricing and reward mechanisms. This whitepaper presents the complete economic framework, mathematical formulations, and behavioral analysis of our innovative cow farming ecosystem.
 
 ## Table of Contents
 
