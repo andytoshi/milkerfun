@@ -66,10 +66,16 @@ async function testCompoundCows() {
     const config = await program.account.config.fetch(configPda);
     console.log("✅ Config loaded successfully");
     console.log("Config details:", {
+      admin: config.admin.toString(),
+      milkMint: config.milkMint.toString(),
+      poolTokenAccount: config.poolTokenAccount.toString(),
       startTime: new Date(config.startTime.toNumber() * 1000).toISOString(),
-      globalCowsCount: config.globalCowsCount.toString(),
-      initialTvl: config.initialTvl.toString(),
+      globalCowsCount: config.globalCowsCount.toNumber(),
+      initialTvl: config.initialTvl.toNumber(),
     });
+
+    // Get pool token account from config
+    const poolTokenAccount = config.poolTokenAccount;
 
     // Check if farm exists
     let farm;
@@ -154,6 +160,7 @@ async function testCompoundCows() {
         .accountsPartial({
           config: configPda,
           farm: farmPda,
+          poolTokenAccount: poolTokenAccount,
           user: wallet.publicKey,
         });
 
