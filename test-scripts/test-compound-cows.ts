@@ -120,7 +120,7 @@ async function testCompoundCows() {
     
     console.log(`🏷️  Current cow price: ${currentCowPrice / 1_000_000} MILK`);
     console.log(`🌍 Global cows: ${globalCows}`);
-    console.log(`📈 Price multiplier: ${(currentCowPrice as f64 / 6_000_000_000.0).toFixed(4)}x`);
+    console.log(`📈 Price multiplier: ${(currentCowPrice / 6_000_000_000.0).toFixed(4)}x`);
 
     // Calculate how many cows we can afford
     const maxAffordableCows = Math.floor(totalRewards / currentCowPrice);
