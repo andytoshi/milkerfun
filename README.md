@@ -1,4 +1,4 @@
-# MilkerFun: We reimagined DeFi on Solana. Every crash = more cash.
+# [Milker.fun](https://milker.fun): We reimagined DeFi on Solana. Every crash = more cash.
 *A Revolutionary yield farming protocol with Dynamic Economic Mechanisms*
 
 ## Abstract
