@@ -57,14 +57,16 @@ The system implements three revolutionary mechanisms:
 
 ```rust
 const COW_BASE_PRICE: u64 = 6_000_000_000;        // 6,000 MILK (6 decimals)
-const PRICE_PIVOT: f64 = 1_000.0;                 // C_pivot
-const PRICE_STEEPNESS: f64 = 1.0;                 // α
-const REWARD_BASE: u64 = 150_000_000_000;         // 150,000 MILK base reward
-const REWARD_SENSITIVITY: f64 = 0.8;              // α_reward
+const PRICE_PIVOT: f64 = 3_000.0;                 // C_pivot
+const PRICE_STEEPNESS: f64 = 1.5;                 // α
+const REWARD_BASE: u64 = 25_000_000_000;          // 25,000 MILK base reward
+const REWARD_SENSITIVITY: f64 = 0.5;              // α_reward
 const TVL_NORMALIZATION: f64 = 50_000_000_000.0;  // 50,000 MILK normalization
-const MIN_REWARD_PER_DAY: u64 = 10_000_000;       // 10 MILK minimum
-const GREED_MULTIPLIER: f64 = 5.0;                // β
-const GREED_DECAY_PIVOT: f64 = 250.0;             // C₀
+const MIN_REWARD_PER_DAY: u64 = 1_000_000_000;    // 1,000 MILK minimum
+const GREED_MULTIPLIER: f64 = 8.0;                // β
+const GREED_DECAY_PIVOT: f64 = 1_500.0;           // C₀
+const INITIAL_TVL: u64 = 50_000_000_000_000;      // 50M MILK initial TVL
+const MAX_COWS_PER_TRANSACTION: u64 = 50;         // Maximum cows per buy transaction
 ```
 
 ---
@@ -83,8 +85,8 @@ Where:
 - `P(c)` = Price at cow count c
 - `P₀` = Base price (6,000 MILK)
 - `c` = Global cow count
-- `C_pivot` = Pivot point (1,000 cows)
-- `α` = Steepness factor (1.0)
+- `C_pivot` = Pivot point (2,500 cows)
+- `α` = Steepness factor (1.5)
 
 #### Implementation:
 ```rust
@@ -188,19 +190,19 @@ The pricing model creates natural supply constraints through exponential cost in
 | Cow Count | Price (MILK) | Multiplier | Daily Cost (1000 cows) |
 |-----------|--------------|------------|-------------------------|
 | 0         | 6,000        | 1.00x      | 6,000,000              |
-| 250       | 6,063        | 1.01x      | 6,063,000              |
-| 500       | 6,250        | 1.04x      | 6,250,000              |
-| 1,000     | 12,000       | 2.00x      | 12,000,000             |
-| 1,500     | 21,794       | 3.63x      | 21,794,000             |
-| 2,000     | 36,000       | 6.00x      | 36,000,000             |
+| 625       | 6,015        | 1.00x      | 6,015,000              |
+| 1,250     | 6,063        | 1.01x      | 6,063,000              |
+| 2,500     | 12,000       | 2.00x      | 12,000,000             |
+| 3,750     | 21,794       | 3.63x      | 21,794,000             |
+| 5,000     | 36,000       | 6.00x      | 36,000,000             |
 
 ### Economic Pressure Points
 
 The system creates three critical pressure points:
 
-1. **Early Adoption Phase (0-250 cows)**: Low prices, maximum greed multiplier
-2. **Growth Phase (250-1000 cows)**: Moderate price increases, declining greed bonus
-3. **Maturity Phase (1000+ cows)**: Exponential pricing, minimal greed bonus
+1. **Early Adoption Phase (0-625 cows)**: Low prices, maximum greed multiplier
+2. **Growth Phase (625-2500 cows)**: Moderate price increases, declining greed bonus
+3. **Maturity Phase (2500+ cows)**: Exponential pricing, minimal greed bonus
 
 ---
 
@@ -215,13 +217,13 @@ Reward Scenarios:
 
 Scenario A: High TVL per Cow (100,000 MILK/cow)
 - Normalized Ratio: 2.0
-- Denominator: 1 + (0.8 × 2.0) = 2.6
-- Base Reward: 150,000 / 2.6 = 57,692 MILK/cow/day
+- Denominator: 1 + (0.5 × 2.0) = 2.0
+- Base Reward: 25,000 / 2.0 = 12,500 MILK/cow/day
 
 Scenario B: Low TVL per Cow (25,000 MILK/cow)  
 - Normalized Ratio: 0.5
-- Denominator: 1 + (0.8 × 0.5) = 1.4
-- Base Reward: 150,000 / 1.4 = 107,143 MILK/cow/day
+- Denominator: 1 + (0.5 × 0.5) = 1.25
+- Base Reward: 25,000 / 1.25 = 20,000 MILK/cow/day
 ```
 
 ### Greed Multiplier Decay
@@ -230,16 +232,32 @@ Early adopters receive exponentially higher rewards:
 
 | Cow Count | Greed Decay | Multiplier | Effective Bonus |
 |-----------|-------------|------------|-----------------|
-| 0         | 1.000       | 6.00x      | +500%          |
-| 50        | 0.819       | 5.10x      | +410%          |
-| 125       | 0.607       | 4.04x      | +304%          |
-| 250       | 0.368       | 2.84x      | +184%          |
-| 500       | 0.135       | 1.68x      | +68%           |
-| 1000      | 0.018       | 1.09x      | +9%            |
+| 0         | 1.000       | 9.00x      | +800%          |
+| 375       | 0.779       | 7.23x      | +623%          |
+| 750       | 0.607       | 5.86x      | +486%          |
+| 1,500     | 0.368       | 3.94x      | +294%          |
+| 3,000     | 0.135       | 2.08x      | +108%          |
+| 6,000     | 0.018       | 1.14x      | +14%           |
 
 ---
 
 ## Anti-Dump Protection
+
+### Maximum Purchase Limit
+
+The system implements a maximum purchase limit to prevent market manipulation:
+
+```rust
+require!(num_cows <= MAX_COWS_PER_TRANSACTION, ErrorCode::ExceedsMaxCowsPerTransaction);
+```
+
+**Benefits:**
+- **Prevents Large Dumps**: Limits single transactions that could manipulate pricing
+- **Encourages Price Discovery**: Large buyers must make multiple transactions at increasing prices  
+- **Fair Distribution**: Promotes more distributed ownership across users
+- **Gas Optimization**: Prevents extremely expensive transactions that could fail
+
+**Note**: This limit applies only to `buy_cows` transactions using external MILK tokens. The `compound_cows` function has no limit since users are reinvesting their own earned rewards.
 
 ### Withdrawal Penalty System
 
@@ -495,8 +513,8 @@ The reward function R = B/(1 + α×(TVL/C)/S) × G(C) guarantees:
 const calculateCowPrice = (globalCows: number): number => {
   if (globalCows === 0) return 6000;
   
-  const ratio = globalCows / 1000;
-  const powerTerm = Math.pow(ratio, 1.0);
+  const ratio = globalCows / 2500;
+  const powerTerm = Math.pow(ratio, 1.5);
   const multiplier = 1 + powerTerm;
   
   return 6000 * multiplier;
@@ -504,17 +522,17 @@ const calculateCowPrice = (globalCows: number): number => {
 
 // Calculate reward rate
 const calculateRewardRate = (globalCows: number, tvl: number): number => {
-  if (globalCows === 0) return 10;
+  if (globalCows === 0) return 1000;
   
   const tvlPerCow = tvl / globalCows;
   const normalizedRatio = tvlPerCow / 50000;
-  const denominator = 1 + (0.8 * normalizedRatio);
-  const baseReward = 150000 / denominator;
+  const denominator = 1 + (0.5 * normalizedRatio);
+  const baseReward = 25000 / denominator;
   
-  const greedDecay = Math.exp(-globalCows / 250);
-  const greedMultiplier = 1 + (5 * greedDecay);
+  const greedDecay = Math.exp(-globalCows / 1500);
+  const greedMultiplier = 1 + (8 * greedDecay);
   
-  return Math.max(baseReward * greedMultiplier, 10);
+  return Math.max(baseReward * greedMultiplier, 1000);
 };
 ```
 
