@@ -5,14 +5,14 @@ const SECONDS_PER_DAY: i64 = 86400; // 24 * 60 * 60
 
 // Economic constants
 const COW_BASE_PRICE: u64 = 6_000_000_000; // 6,000 MILK (6 decimals)
-const PRICE_PIVOT: f64 = 1_000.0; // C_pivot
-const PRICE_STEEPNESS: f64 = 1.0; // α
-const REWARD_BASE: u64 = 150_000_000_000; // 150,000 MILK (6 decimals) - B
+const PRICE_PIVOT: f64 = 3_000.0; // C_pivot
+const PRICE_STEEPNESS: f64 = 1.35; // α
+const REWARD_BASE: u64 = 30_000_000_000; // 30,000 MILK (6 decimals) - B
 const REWARD_SENSITIVITY: f64 = 0.8; // α_reward
-const TVL_NORMALIZATION: f64 = 50_000_000_000.0; // 100,000 MILK (6 decimals) - S
-const MIN_REWARD_PER_DAY: u64 = 10_000_000; // 10 MILK per day (6 decimals) - R_min
-const GREED_MULTIPLIER: f64 = 5.0; // β
-const GREED_DECAY_PIVOT: f64 = 250.0; // C₀
+const TVL_NORMALIZATION: f64 = 50_000_000_000.0; // 50,000 MILK (6 decimals) - S
+const MIN_REWARD_PER_DAY: u64 = 10_000_000_000; // 10,000 MILK per day (6 decimals) - R_min
+const GREED_MULTIPLIER: f64 = 8.0; // β
+const GREED_DECAY_PIVOT: f64 = 300.0; // C₀
 const INITIAL_TVL: u64 = 50_000_000_000_000; // 50M MILK (6 decimals)
 
 declare_id!("Aknxju7fmwfMMzneFJxqeWSnEeT7fKeo9c8o3fKkaPT8");
