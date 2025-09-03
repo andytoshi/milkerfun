@@ -5,7 +5,7 @@ const SECONDS_PER_DAY: i64 = 86400; // 24 * 60 * 60
 
 // Economic constants
 const COW_BASE_PRICE: u64 = 6_000_000_000; // 6,000 MILK (6 decimals)
-const PRICE_PIVOT: f64 = 2_500.0; // C_pivot
+const PRICE_PIVOT: f64 = 3_000.0; // C_pivot
 const PRICE_STEEPNESS: f64 = 1.5; // α
 const REWARD_BASE: u64 = 25_000_000_000; // 25,000 MILK (6 decimals) - B
 const REWARD_SENSITIVITY: f64 = 0.5; // α_reward
@@ -14,6 +14,7 @@ const MIN_REWARD_PER_DAY: u64 = 1_000_000_000; // 1,000 MILK per day (6 decimals
 const GREED_MULTIPLIER: f64 = 8.0; // β
 const GREED_DECAY_PIVOT: f64 = 1_500.0; // C₀
 const INITIAL_TVL: u64 = 50_000_000_000_000; // 50M MILK (6 decimals)
+const MAX_COWS_PER_TRANSACTION: u64 = 50; // Maximum cows per buy transaction
 
 declare_id!("Aknxju7fmwfMMzneFJxqeWSnEeT7fKeo9c8o3fKkaPT8");
 
@@ -39,6 +40,7 @@ pub mod milkerfun {
 
     pub fn buy_cows(ctx: Context<BuyCows>, num_cows: u64) -> Result<()> {
         require!(num_cows > 0, ErrorCode::InvalidAmount);
+        require!(num_cows <= MAX_COWS_PER_TRANSACTION, ErrorCode::ExceedsMaxCowsPerTransaction);
         
         let config = &mut ctx.accounts.config;
         let farm = &mut ctx.accounts.farm;
@@ -616,4 +618,6 @@ pub enum ErrorCode {
     InvalidPoolAccount,
     #[msg("No funds available for migration")]
     NoFundsToMigrate,
+    #[msg("Cannot buy more than 50 cows per transaction")]
+    ExceedsMaxCowsPerTransaction,
 }
