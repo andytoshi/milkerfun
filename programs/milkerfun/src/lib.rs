@@ -156,15 +156,24 @@ pub mod milkerfun {
             withdrawal_amount,
         )?;
 
+        // Calculate new reward rate after withdrawal (TVL decreased)
+        let new_tvl = ctx.accounts.pool_token_account.amount
+            .checked_sub(withdrawal_amount)
+            .ok_or(ErrorCode::MathOverflow)?;
+        
+        let new_reward_rate = calculate_reward_rate(config.global_cows_count, new_tvl)?;
+        farm.last_reward_rate = new_reward_rate;
+
         // Reset accumulated rewards and update last withdraw time
         farm.accumulated_rewards = 0;
         farm.last_withdraw_time = current_time;
 
         if penalty_amount > 0 {
-            msg!("Successfully withdrew {} MILK tokens with {} MILK penalty remaining in pool", 
-                 withdrawal_amount / 1_000_000, penalty_amount / 1_000_000);
+            msg!("Successfully withdrew {} MILK tokens with {} MILK penalty remaining in pool. New rate: {} MILK/cow/day", 
+                 withdrawal_amount / 1_000_000, penalty_amount / 1_000_000, new_reward_rate / 1_000_000);
         } else {
-            msg!("Successfully withdrew {} MILK tokens (penalty-free)", withdrawal_amount / 1_000_000);
+            msg!("Successfully withdrew {} MILK tokens (penalty-free). New rate: {} MILK/cow/day", 
+                 withdrawal_amount / 1_000_000, new_reward_rate / 1_000_000);
         }
         
         Ok(())
