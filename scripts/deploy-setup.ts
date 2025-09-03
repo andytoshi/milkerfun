@@ -10,8 +10,8 @@ import * as fs from "fs";
 import * as os from "os";
 
 // MILK token mint addresses
-const MILK_MINT_DEVNET = new PublicKey("H5b47NLbNgTAAMpz3rZKAfcoJ2JdGWKcEuEK51ghCbbY");
-const MILK_MINT_MAINNET = new PublicKey("H5b47NLbNgTAAMpz3rZKAfcoJ2JdGWKcEuEK51ghCbbY"); //change for mainnet
+const MILK_MINT_DEVNET = new PublicKey("ErGaHLayDmovrt2ttBrwmrrYyjuaqojABWEuPiYgtZvj");
+const MILK_MINT_MAINNET = new PublicKey("11111111111111111111111111111111"); //change for mainnet
 
 /**
  * Deployment setup script for MilkerFun
