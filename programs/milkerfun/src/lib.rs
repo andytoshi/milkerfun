@@ -135,6 +135,10 @@ pub mod milkerfun {
             (withdrawal, penalty)
         };
 
+        // Cap withdrawal to available pool balance
+        let pool_balance = ctx.accounts.pool_token_account.amount;
+        let withdrawal_amount = withdrawal_amount.min(pool_balance);
+
         // Create signer seeds for pool authority
         let config_key = config.key();
         let seeds = &[
