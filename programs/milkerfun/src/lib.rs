@@ -9,11 +9,11 @@ const PRICE_PIVOT: f64 = 3_000.0; // C_pivot
 const PRICE_STEEPNESS: f64 = 1.5; // α
 const REWARD_BASE: u64 = 25_000_000_000; // 25,000 MILK (6 decimals) - B
 const REWARD_SENSITIVITY: f64 = 0.5; // α_reward
-const TVL_NORMALIZATION: f64 = 50_000_000_000.0; // 50,000 MILK (6 decimals) - S
+const TVL_NORMALIZATION: f64 = 100_000_000_000.0; // 100,000 MILK (6 decimals) - S
 const MIN_REWARD_PER_DAY: u64 = 1_000_000_000; // 1,000 MILK per day (6 decimals) - R_min
 const GREED_MULTIPLIER: f64 = 8.0; // β
 const GREED_DECAY_PIVOT: f64 = 1_500.0; // C₀
-const INITIAL_TVL: u64 = 50_000_000_000_000; // 50M MILK (6 decimals)
+const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
 const MAX_COWS_PER_TRANSACTION: u64 = 50; // Maximum cows per buy transaction
 
 declare_id!("8zmgozhMKcA5a8YmnZUju59A8qhwCnwrocK9iWLZHoZ3");
