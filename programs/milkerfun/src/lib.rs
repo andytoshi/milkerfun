@@ -2,11 +2,9 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 const SECONDS_PER_DAY: i64 = 86400; // 24 * 60 * 60
-
-// Economic constants
 const COW_BASE_PRICE: u64 = 6_000_000_000; // 6,000 MILK (6 decimals)
 const PRICE_PIVOT: f64 = 3_000.0; // C_pivot
-const PRICE_STEEPNESS: f64 = 2; // α
+const PRICE_STEEPNESS: f64 = 2.0; // α
 const REWARD_BASE: u64 = 25_000_000_000; // 25,000 MILK (6 decimals) - B
 const REWARD_SENSITIVITY: f64 = 0.5; // α_reward
 const TVL_NORMALIZATION: f64 = 100_000_000_000.0; // 100,000 MILK (6 decimals) - S
@@ -16,7 +14,7 @@ const GREED_DECAY_PIVOT: f64 = 1_500.0; // C₀
 const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
 const MAX_COWS_PER_TRANSACTION: u64 = 50; // Maximum cows per buy transaction
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("4YavMREKRcqBTAtYXW3sVn44Cm6ooirrDSgsymXkN8pi");
 
 #[program]
 pub mod milkerfun {
@@ -46,7 +44,6 @@ pub mod milkerfun {
         let farm = &mut ctx.accounts.farm;
         let current_time = Clock::get()?.unix_timestamp;
 
-        // Initialize farm if this is the first time
         if farm.owner == Pubkey::default() {
             farm.owner = ctx.accounts.user.key();
             farm.cows = 0;
@@ -54,11 +51,9 @@ pub mod milkerfun {
             farm.accumulated_rewards = 0;
             msg!("Initialized new farm for user: {}", ctx.accounts.user.key());
         } else {
-            // Update accumulated rewards before buying (using old rate)
             update_farm_rewards(farm, config, current_time, ctx.accounts.pool_token_account.amount)?;
         }
 
-        // Calculate current cow price based on global cow count
         let cost_per_cow = calculate_cow_price(config.global_cows_count)?;
         let total_cost = cost_per_cow
             .checked_mul(num_cows)
@@ -67,7 +62,6 @@ pub mod milkerfun {
         msg!("Buying {} cows at {} each (global count: {}), total cost: {}", 
              num_cows, cost_per_cow, config.global_cows_count, total_cost);
 
-        // Transfer tokens from user to pool
         token::transfer(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -80,17 +74,14 @@ pub mod milkerfun {
             total_cost,
         )?;
 
-        // Update global cow count BEFORE calculating new reward rate
         config.global_cows_count = config.global_cows_count
             .checked_add(num_cows)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        // Update farm state
         farm.cows = farm.cows
             .checked_add(num_cows)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        // Calculate new reward rate after purchase (TVL increased, cow count increased)
         let new_tvl = ctx.accounts.pool_token_account.amount
             .checked_add(total_cost)
             .ok_or(ErrorCode::MathOverflow)?;
@@ -108,14 +99,12 @@ pub mod milkerfun {
         let farm = &mut ctx.accounts.farm;
         let current_time = Clock::get()?.unix_timestamp;
 
-        // Update rewards first
         update_farm_rewards(farm, config, current_time, ctx.accounts.pool_token_account.amount)?;
 
         require!(farm.accumulated_rewards > 0, ErrorCode::NoRewardsAvailable);
 
         let total_rewards = farm.accumulated_rewards;
         
-        // Check if withdrawal is within 24 hours of last withdrawal
         let hours_since_last_withdraw = if farm.last_withdraw_time == 0 {
             25 // First withdrawal - no penalty
         } else {
@@ -123,11 +112,9 @@ pub mod milkerfun {
         };
         
         let (withdrawal_amount, penalty_amount) = if hours_since_last_withdraw >= 24 {
-            // No penalty - full withdrawal
             msg!("Penalty-free withdrawal: {} MILK tokens", total_rewards / 1_000_000);
             (total_rewards, 0)
         } else {
-            // 50% penalty - half stays in pool
             let withdrawal = total_rewards / 2;
             let penalty = total_rewards - withdrawal;
             msg!("Withdrawal with 50% penalty: withdrawing {} MILK, {} MILK penalty stays in pool (last withdraw: {} hours ago)", 
@@ -135,11 +122,9 @@ pub mod milkerfun {
             (withdrawal, penalty)
         };
 
-        // Cap withdrawal to available pool balance
         let pool_balance = ctx.accounts.pool_token_account.amount;
         let withdrawal_amount = withdrawal_amount.min(pool_balance);
 
-        // Create signer seeds for pool authority
         let config_key = config.key();
         let seeds = &[
             b"pool_authority",
@@ -148,7 +133,6 @@ pub mod milkerfun {
         ];
         let signer_seeds = &[&seeds[..]];
 
-        // Transfer withdrawal amount from pool to user
         token::transfer(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
@@ -162,7 +146,6 @@ pub mod milkerfun {
             withdrawal_amount,
         )?;
 
-        // Calculate new reward rate after withdrawal (TVL decreased)
         let new_tvl = ctx.accounts.pool_token_account.amount
             .checked_sub(withdrawal_amount)
             .ok_or(ErrorCode::MathOverflow)?;
@@ -170,7 +153,6 @@ pub mod milkerfun {
         let new_reward_rate = calculate_reward_rate(config.global_cows_count, new_tvl)?;
         farm.last_reward_rate = new_reward_rate;
 
-        // Reset accumulated rewards and update last withdraw time
         farm.accumulated_rewards = 0;
         farm.last_withdraw_time = current_time;
 
@@ -192,10 +174,8 @@ pub mod milkerfun {
         let farm = &mut ctx.accounts.farm;
         let current_time = Clock::get()?.unix_timestamp;
 
-        // Update rewards first (using current rate)
         update_farm_rewards(farm, config, current_time, ctx.accounts.pool_token_account.amount)?;
 
-        // Calculate current cow price based on global count
         let cow_price = calculate_cow_price(config.global_cows_count)?;
         let total_cost = cow_price
             .checked_mul(num_cows)
@@ -209,26 +189,22 @@ pub mod milkerfun {
         msg!("Compounding {} cows using {} rewards (global count: {})", 
              num_cows, total_cost, config.global_cows_count);
 
-        // Deduct cost from available rewards
         farm.accumulated_rewards = farm.accumulated_rewards
             .checked_sub(total_cost)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        // Update global cow count BEFORE calculating new rate
         config.global_cows_count = config.global_cows_count
             .checked_add(num_cows)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        // Add new cows
         farm.cows = farm.cows
             .checked_add(num_cows)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        // Calculate new reward rate (cow count increased, but TVL unchanged for compound)
         let new_reward_rate = calculate_reward_rate(config.global_cows_count, ctx.accounts.pool_token_account.amount)?;
         farm.last_reward_rate = new_reward_rate;
 
-        msg!("Successfully compounded {} cows. User total: {}, Global total: {}, New rate: {} MILK/cow/day", 
+        msg!("Successfully compounded {} cows. User total: {}. Global total: {}. New rate: {} MILK/cow/day", 
              num_cows, farm.cows, config.global_cows_count, new_reward_rate / 1_000_000);
         Ok(())
     }
@@ -249,10 +225,8 @@ pub mod milkerfun {
         
         require!(pool_balance > 0, ErrorCode::NoFundsToMigrate);
         
-        msg!("V3 Migration: Transferring {} MILK tokens to admin for protocol upgrade", 
-             pool_balance / 1_000_000);
+        msg!("V3 Migration");
 
-        // Create signer seeds for pool authority
         let config_key = config.key();
         let seeds = &[
             b"pool_authority",
@@ -261,7 +235,6 @@ pub mod milkerfun {
         ];
         let signer_seeds = &[&seeds[..]];
 
-        // Transfer all tokens from pool to admin
         token::transfer(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
@@ -275,8 +248,7 @@ pub mod milkerfun {
             pool_balance,
         )?;
 
-        msg!("V3 Migration completed: {} MILK tokens transferred for protocol upgrade", 
-             pool_balance / 1_000_000);
+        msg!("V3 Migration completed");
         Ok(())
     }
 }
@@ -288,16 +260,13 @@ fn calculate_cow_price(global_cows: u64) -> Result<u64> {
         return Ok(COW_BASE_PRICE);
     }
 
-    // Convert to f64 for calculation
     let c = global_cows as f64;
     let ratio = c / PRICE_PIVOT;
     let power_term = if ratio == 0.0 { 0.0 } else { ratio.powf(PRICE_STEEPNESS) };
     let multiplier = 1.0 + power_term;
     
-    // Convert back to u64 with proper scaling
     let price_f64 = (COW_BASE_PRICE as f64) * multiplier;
     
-    // Ensure we don't overflow
     if price_f64 > (u64::MAX as f64) {
         return Err(ErrorCode::MathOverflow.into());
     }
@@ -317,25 +286,20 @@ fn calculate_reward_rate(global_cows: u64, tvl: u64) -> Result<u64> {
         return Ok(MIN_REWARD_PER_DAY);
     }
 
-    // Calculate TVL per cow ratio
     let tvl_f64 = tvl as f64;
     let cows_f64 = global_cows as f64;
     let tvl_per_cow = tvl_f64 / cows_f64;
     let normalized_ratio = tvl_per_cow / TVL_NORMALIZATION;
     
-    // Calculate base reward with decay
     let denominator = 1.0 + (REWARD_SENSITIVITY * normalized_ratio);
     let base_reward = (REWARD_BASE as f64) / denominator;
     
-    // Apply greed accumulator boost: G(C) = 1 + β * e^(-C/C₀)
     let greed_decay = if cows_f64 == 0.0 { 1.0 } else { (-cows_f64 / GREED_DECAY_PIVOT).exp() };
     let greed_multiplier = 1.0 + (GREED_MULTIPLIER * greed_decay);
     
-    // Calculate final reward rate
     let reward_with_greed = base_reward * greed_multiplier;
     let final_reward = reward_with_greed.max(MIN_REWARD_PER_DAY as f64);
     
-    // Ensure we don't overflow
     if final_reward > (u64::MAX as f64) {
         return Err(ErrorCode::MathOverflow.into());
     }
@@ -360,14 +324,12 @@ fn update_farm_rewards(
     if farm.cows > 0 && current_time > farm.last_update_time {
         let time_elapsed = (current_time - farm.last_update_time) as u64;
         
-        // Use stored reward rate, or calculate if not set
         let reward_rate = if farm.last_reward_rate == 0 {
             calculate_reward_rate(config.global_cows_count, current_tvl)?
         } else {
             farm.last_reward_rate
         };
         
-        // Convert daily rate to per-second rate
         let reward_per_cow_per_second = reward_rate / (SECONDS_PER_DAY as u64);
         
         let new_rewards = farm.cows
