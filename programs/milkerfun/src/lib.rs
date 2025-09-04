@@ -6,7 +6,7 @@ const SECONDS_PER_DAY: i64 = 86400; // 24 * 60 * 60
 // Economic constants
 const COW_BASE_PRICE: u64 = 6_000_000_000; // 6,000 MILK (6 decimals)
 const PRICE_PIVOT: f64 = 3_000.0; // C_pivot
-const PRICE_STEEPNESS: f64 = 1.5; // α
+const PRICE_STEEPNESS: f64 = 2; // α
 const REWARD_BASE: u64 = 25_000_000_000; // 25,000 MILK (6 decimals) - B
 const REWARD_SENSITIVITY: f64 = 0.5; // α_reward
 const TVL_NORMALIZATION: f64 = 100_000_000_000.0; // 100,000 MILK (6 decimals) - S
