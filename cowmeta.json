@@ -1,7 +1,7 @@
 {
-      name: "MilkerFun Cow",
-      symbol: "COW",
-      description: "Tradeable cows from MilkerFun yield farming protocol. Import to your farm to earn MILK rewards.",
-      image: "https://raw.githubusercontent.com/freenetcoder/milkerfun/refs/heads/main/cow.png",
-      external_url: "https://milker.fun"
+      "name": "MilkerFun Cow",
+      "symbol": "COW",
+      "description": "Tradeable cows from MilkerFun yield farming protocol. Import to your farm to earn MILK rewards.",
+      "image": "https://raw.githubusercontent.com/freenetcoder/milkerfun/refs/heads/main/cow.png",
+      "external_url": "https://milker.fun"
 }
