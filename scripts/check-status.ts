@@ -44,6 +44,7 @@ async function main() {
     console.log("\n=== Configuration ===");
     console.log("Admin:", config.admin.toString());
     console.log("MILK Mint:", config.milkMint.toString());
+    console.log("COW Mint:", config.cowMint.toString());
     console.log("Pool Token Account:", config.poolTokenAccount.toString());
     console.log("Start Time:", new Date(config.startTime.toNumber() * 1000).toISOString());
     console.log("Global Cows Count:", config.globalCowsCount.toNumber());

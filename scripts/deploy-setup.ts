@@ -66,6 +66,19 @@ async function main() {
   console.log("Config PDA:", configPda.toString());
   console.log("Pool Authority PDA:", poolAuthorityPda.toString());
 
+  const [cowMintPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("cow_mint"), configPda.toBuffer()],
+    program.programId
+  );
+
+  const [cowMintAuthorityPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("cow_mint_authority"), configPda.toBuffer()],
+    program.programId
+  );
+
+  console.log("COW Mint PDA:", cowMintPda.toString());
+  console.log("COW Mint Authority PDA:", cowMintAuthorityPda.toString());
+
   // Check if pool token account already exists
   let poolTokenAccount: PublicKey;
   
@@ -180,12 +193,14 @@ async function main() {
 
   // Initialize config with proper error handling
   let tx;
-  console.log("Initializing config with verified pool token account...");
+  console.log("Initializing config with verified pool token account and COW mint...");
   try {
     tx = await program.methods
       .initializeConfig()
       .accountsPartial({
         milkMint: milkMint,
+        cowMint: cowMintPda,
+        cowMintAuthority: cowMintAuthorityPda,
         poolTokenAccount: poolTokenAccount,
         admin: wallet.publicKey,
       })
@@ -242,6 +257,7 @@ async function main() {
   console.log("\n=== Configuration ===");
   console.log("Admin:", config.admin.toString());
   console.log("MILK Mint:", config.milkMint.toString());
+  console.log("COW Mint:", config.cowMint.toString());
   console.log("Pool Token Account:", config.poolTokenAccount.toString());
   console.log("Start Time:", new Date(config.startTime.toNumber() * 1000).toISOString());
   console.log("Global Cows Count:", config.globalCowsCount.toString());
@@ -251,8 +267,10 @@ async function main() {
   console.log("Save these addresses for your frontend:");
   console.log("Program ID:", program.programId.toString());
   console.log("MILK Mint:", milkMint.toString());
+  console.log("COW Mint:", cowMintPda.toString());
   console.log("Config PDA:", configPda.toString());
   console.log("Pool Authority PDA:", poolAuthorityPda.toString());
+  console.log("COW Mint Authority PDA:", cowMintAuthorityPda.toString());
   console.log("Pool Token Account:", poolTokenAccount.toString());
 
   console.log("\n⚠️  NEXT STEPS:");
