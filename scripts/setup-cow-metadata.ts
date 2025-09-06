@@ -70,9 +70,9 @@ async function main() {
     console.log("✅ UMI initialized with admin signer");
 
     console.log("\n=== Creating Metadata ===");
-    console.log("Name: MilkerFun Cow");
+    console.log("Name: milkerfun");
     console.log("Symbol: COW");
-    console.log("URI: https://arweave.net/placeholder-cow-metadata.json");
+    console.log("URI: https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cowmeta.json");
     console.log("Creator:", wallet.publicKey.toString());
 
     // Create metadata using UMI with admin as mint authority
@@ -82,9 +82,9 @@ async function main() {
       payer: signer,
       updateAuthority: signer,
       data: {
-        name: "MilkerFun Cow",
+        name: "milkerfun",
         symbol: "COW",
-        uri: "https://arweave.net/placeholder-cow-metadata.json",
+        uri: "https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cowmeta.json",
         sellerFeeBasisPoints: 0, // 0% royalty
         creators: [
           {
