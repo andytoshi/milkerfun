@@ -21,15 +21,18 @@
     "test-export": "ts-node test-scripts/test-export-cows.ts",
     "test-import": "ts-node test-scripts/test-import-cows.ts",
     "test-full-flow": "ts-node test-scripts/test-full-flow.ts",
-    "setup-cow-metadata": "ts-node scripts/setup-cow-metadata.ts"
+    "setup-cow-metadata": "ts-node scripts/setup-cow-metadata.ts",
+    "transfer-cow-authority": "ts-node scripts/transfer-cow-authority.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
-    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
     "@solana/spl-token": "^0.4.8",
     "@solana/web3.js": "^1.95.4"
   },
   "devDependencies": {
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.4.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.4.1",
     "@types/bn.js": "^5.1.0",
     "@types/chai": "^4.3.0",
     "@types/mocha": "^9.0.0",

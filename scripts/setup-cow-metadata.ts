@@ -2,17 +2,19 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Milkerfun } from "../target/types/milkerfun";
 import { PublicKey } from "@solana/web3.js";
-import {
-  createCreateMetadataAccountV3Instruction,
-  PROGRAM_ID as METADATA_PROGRAM_ID,
-  DataV2,
-} from "@metaplex-foundation/mpl-token-metadata";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { createMetadataAccountV3 } from "@metaplex-foundation/mpl-token-metadata";
+import { 
+  publicKey, 
+  createSignerFromKeypair, 
+  signerIdentity
+} from "@metaplex-foundation/umi";
 import * as fs from "fs";
 import * as os from "os";
 
 /**
- * Setup script to add metadata to COW token
- * Run this after deploy-setup to add proper token metadata for DEX listings
+ * Setup script to add metadata to COW token using admin authority
+ * Run this AFTER deploy-setup but BEFORE transfer-cow-authority
  */
 async function main() {
   // Set up provider manually
@@ -49,99 +51,58 @@ async function main() {
 
     console.log("COW Mint:", cowMint.toString());
 
-    // Derive metadata PDA
-    const [metadataPda] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("metadata"),
-        METADATA_PROGRAM_ID.toBuffer(),
-        cowMint.toBuffer(),
-      ],
-      METADATA_PROGRAM_ID
-    );
-
-    console.log("Metadata PDA:", metadataPda.toString());
-
-    // Check if metadata already exists
-    try {
-      const existingMetadata = await provider.connection.getAccountInfo(metadataPda);
-      if (existingMetadata) {
-        console.log("⚠️  Metadata already exists for COW token");
-        console.log("If you want to update it, you'll need to use updateMetadataAccountV2");
-        return;
-      }
-    } catch (error) {
-      // Metadata doesn't exist, continue with creation
+    // Verify admin is current mint authority
+    const mintInfo = await connection.getAccountInfo(cowMint);
+    if (!mintInfo) {
+      throw new Error("COW mint account not found");
     }
 
-    // Define metadata with placeholder data
-    const tokenMetadata: DataV2 = {
-      name: "MilkerFun Cow",
-      symbol: "COW",
-      uri: "https://placeholder.com/cow-metadata.json", // You can replace this
-      sellerFeeBasisPoints: 0, // No royalties for fungible tokens
-      creators: [
-        {
-          address: wallet.publicKey,
-          verified: true,
-          share: 100,
-        },
-      ],
-      collection: null,
-      uses: null,
-    };
+    console.log("✅ COW mint found, admin should be current authority");
+
+    // Initialize UMI
+    const umi = createUmi(connection.rpcEndpoint);
+    
+    // Convert Anchor keypair to UMI keypair
+    const umiKeypair = umi.eddsa.createKeypairFromSecretKey(walletKeypair.secretKey);
+    const signer = createSignerFromKeypair(umi, umiKeypair);
+    umi.use(signerIdentity(signer));
+
+    console.log("✅ UMI initialized with admin signer");
 
     console.log("\n=== Creating Metadata ===");
-    console.log("Name:", tokenMetadata.name);
-    console.log("Symbol:", tokenMetadata.symbol);
-    console.log("URI:", tokenMetadata.uri);
+    console.log("Name: MilkerFun Cow");
+    console.log("Symbol: COW");
+    console.log("URI: https://arweave.net/placeholder-cow-metadata.json");
     console.log("Creator:", wallet.publicKey.toString());
 
-    // Get COW mint authority PDA
-    const [cowMintAuthorityPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("cow_mint_authority"), configPda.toBuffer()],
-      program.programId
-    );
-
-    // Create metadata instruction
-    const createMetadataInstruction = createCreateMetadataAccountV3Instruction(
-      {
-        metadata: metadataPda,
-        mint: cowMint,
-        mintAuthority: cowMintAuthorityPda, // Program controls the mint
-        payer: wallet.publicKey,
-        updateAuthority: wallet.publicKey, // Admin can update metadata
+    // Create metadata using UMI with admin as mint authority
+    const result = await createMetadataAccountV3(umi, {
+      mint: publicKey(cowMint.toString()),
+      mintAuthority: signer, // Admin is current mint authority
+      payer: signer,
+      updateAuthority: signer,
+      data: {
+        name: "MilkerFun Cow",
+        symbol: "COW",
+        uri: "https://arweave.net/placeholder-cow-metadata.json",
+        sellerFeeBasisPoints: 0, // 0% royalty
+        creators: [
+          {
+            address: publicKey(wallet.publicKey.toString()),
+            verified: true,
+            share: 100,
+          },
+        ],
+        collection: null,
+        uses: null,
       },
-      {
-        createMetadataAccountArgsV3: {
-          data: tokenMetadata,
-          isMutable: true, // Allow future updates
-          collectionDetails: null,
-        },
-      }
-    );
+      isMutable: true,
+      collectionDetails: null,
+    }).sendAndConfirm(umi);
 
-    // Send transaction
-    const transaction = new anchor.web3.Transaction().add(createMetadataInstruction);
-    
-    console.log("🔄 Creating metadata account...");
-    const signature = await provider.sendAndConfirm(transaction);
-    
     console.log("✅ Metadata created successfully!");
-    console.log("Transaction signature:", signature);
-    console.log("🔗 Explorer:", `https://explorer.solana.com/tx/${signature}?cluster=devnet`);
-
-    // Verify metadata creation
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    try {
-      const metadataAccount = await provider.connection.getAccountInfo(metadataPda);
-      if (metadataAccount) {
-        console.log("✅ Metadata account verified");
-        console.log("Account size:", metadataAccount.data.length, "bytes");
-      }
-    } catch (error) {
-      console.log("⚠️  Could not verify metadata account, but transaction succeeded");
-    }
+    console.log("Transaction signature:", result.signature);
+    console.log("🔗 Explorer:", `https://explorer.solana.com/tx/${result.signature}?cluster=devnet`);
 
     console.log("\n=== Metadata Setup Complete ===");
     console.log("COW token now has proper metadata for:");
@@ -149,34 +110,21 @@ async function main() {
     console.log("✅ Wallet display (Phantom, Solflare, etc.)");
     console.log("✅ Block explorers (Solscan, SolanaFM, etc.)");
 
-    console.log("\n💡 Next Steps:");
-    console.log("1. Create a JSON metadata file and host it publicly");
-    console.log("2. Update the URI to point to your hosted metadata");
-    console.log("3. Add a proper COW token image/logo");
-    console.log("4. Update social links and description");
-
-    console.log("\n📝 Example metadata JSON structure:");
-    console.log(JSON.stringify({
-      name: "MilkerFun Cow",
-      symbol: "COW",
-      description: "Tradeable cows from MilkerFun yield farming protocol. Import to your farm to earn MILK rewards.",
-      image: "https://your-domain.com/cow-logo.png",
-      external_url: "https://milker.fun",
-      attributes: [
-        { trait_type: "Type", value: "Yield Farming Token" },
-        { trait_type: "Protocol", value: "MilkerFun" },
-        { trait_type: "Utility", value: "Stakeable for MILK rewards" }
-      ],
-      properties: {
-        category: "fungible"
-      }
-    }, null, 2));
+    console.log("\n⚠️  IMPORTANT NEXT STEP:");
+    console.log("Run 'yarn transfer-cow-authority' to transfer mint authority to PDA");
+    console.log("This will enable export/import functionality while preserving metadata");
 
   } catch (error) {
     console.error("❌ Metadata setup failed:", error.message);
     if (error.logs) {
       error.logs.forEach(log => console.error(log));
     }
+    
+    console.log("\n💡 Troubleshooting:");
+    console.log("1. Make sure you ran 'yarn deploy-setup' first");
+    console.log("2. Ensure admin wallet has SOL for transaction fees");
+    console.log("3. Verify COW mint authority is still admin (not transferred yet)");
+    
     process.exit(1);
   }
 }
