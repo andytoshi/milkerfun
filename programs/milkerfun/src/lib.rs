@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer, MintTo, Burn};
 
 const SECONDS_PER_DAY: i64 = 86400; // 24 * 60 * 60
 const COW_BASE_PRICE: u64 = 6_000_000_000; // 6,000 MILK (6 decimals)
@@ -27,12 +27,47 @@ pub mod milkerfun {
         config.admin = ctx.accounts.admin.key();
         config.milk_mint = ctx.accounts.milk_mint.key();
         config.pool_token_account = ctx.accounts.pool_token_account.key();
+        config.cow_mint = ctx.accounts.cow_mint.key();
         config.start_time = current_time;
         config.global_cows_count = 0;
         config.initial_tvl = INITIAL_TVL;
         
-        msg!("Config initialized - Start time: {}, Initial TVL: {} MILK, Pool: {}", 
-             current_time, INITIAL_TVL / 1_000_000, config.pool_token_account);
+        msg!("Config initialized - Start time: {}, Initial TVL: {} MILK, Pool: {}, COW Mint: {}", 
+             current_time, INITIAL_TVL / 1_000_000, config.pool_token_account, config.cow_mint);
+        Ok(())
+    }
+
+    pub fn transfer_cow_mint_authority(ctx: Context<TransferCowMintAuthority>) -> Result<()> {
+        msg!("Transferring COW mint authority from admin to PDA");
+        
+        // Transfer mint authority to PDA
+        let cpi_accounts = anchor_spl::token::SetAuthority {
+            account_or_mint: ctx.accounts.cow_mint.to_account_info(),
+            current_authority: ctx.accounts.admin.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        
+        anchor_spl::token::set_authority(
+            cpi_ctx,
+            anchor_spl::token::spl_token::instruction::AuthorityType::MintTokens,
+            Some(ctx.accounts.cow_mint_authority.key()),
+        )?;
+        
+        // Also transfer freeze authority to PDA
+        let cpi_accounts_freeze = anchor_spl::token::SetAuthority {
+            account_or_mint: ctx.accounts.cow_mint.to_account_info(),
+            current_authority: ctx.accounts.admin.to_account_info(),
+        };
+        let cpi_ctx_freeze = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts_freeze);
+        
+        anchor_spl::token::set_authority(
+            cpi_ctx_freeze,
+            anchor_spl::token::spl_token::instruction::AuthorityType::FreezeAccount,
+            Some(ctx.accounts.cow_mint_authority.key()),
+        )?;
+        
+        msg!("COW mint authority successfully transferred to PDA: {}", ctx.accounts.cow_mint_authority.key());
         Ok(())
     }
 
@@ -251,6 +286,105 @@ pub mod milkerfun {
         msg!("V3 Migration completed");
         Ok(())
     }
+
+    pub fn export_cows(ctx: Context<ExportCows>, num_cows: u64) -> Result<()> {
+        require!(num_cows > 0, ErrorCode::InvalidAmount);
+        
+        let config = &ctx.accounts.config;
+        let farm = &mut ctx.accounts.farm;
+        let current_time = Clock::get()?.unix_timestamp;
+
+        // Update rewards before export (user keeps accumulated rewards)
+        update_farm_rewards(farm, config, current_time, ctx.accounts.pool_token_account.amount)?;
+
+        require!(farm.cows >= num_cows, ErrorCode::InsufficientCows);
+
+        msg!("Exporting {} cows to COW tokens for user: {}", num_cows, ctx.accounts.user.key());
+
+        // Reduce cow count in farm
+        farm.cows = farm.cows
+            .checked_sub(num_cows)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        // Mint COW tokens to user (1 cow = 1 COW token with 0 decimals)
+        let config_key = config.key();
+        let seeds = &[
+            b"cow_mint_authority",
+            config_key.as_ref(),
+            &[ctx.bumps.cow_mint_authority],
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        token::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                MintTo {
+                    mint: ctx.accounts.cow_mint.to_account_info(),
+                    to: ctx.accounts.user_cow_token_account.to_account_info(),
+                    authority: ctx.accounts.cow_mint_authority.to_account_info(),
+                },
+                signer_seeds,
+            ),
+            num_cows, // COW tokens have 0 decimals, so 1 cow = 1 token
+        )?;
+
+        msg!("Successfully exported {} cows to COW tokens. User cows remaining: {}", 
+             num_cows, farm.cows);
+        Ok(())
+    }
+
+    pub fn import_cows(ctx: Context<ImportCows>, num_cows: u64) -> Result<()> {
+        require!(num_cows > 0, ErrorCode::InvalidAmount);
+        
+        let config = &mut ctx.accounts.config;
+        let farm = &mut ctx.accounts.farm;
+        let current_time = Clock::get()?.unix_timestamp;
+
+        // Initialize farm if needed
+        if farm.owner == Pubkey::default() {
+            farm.owner = ctx.accounts.user.key();
+            farm.cows = 0;
+            farm.last_update_time = current_time;
+            farm.accumulated_rewards = 0;
+            msg!("Initialized new farm for user: {}", ctx.accounts.user.key());
+        } else {
+            // Update rewards before import
+            update_farm_rewards(farm, config, current_time, ctx.accounts.pool_token_account.amount)?;
+        }
+
+        msg!("Importing {} COW tokens to cows for user: {}", num_cows, ctx.accounts.user.key());
+
+        // Burn COW tokens from user
+        token::burn(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Burn {
+                    mint: ctx.accounts.cow_mint.to_account_info(),
+                    from: ctx.accounts.user_cow_token_account.to_account_info(),
+                    authority: ctx.accounts.user.to_account_info(),
+                },
+            ),
+            num_cows, // COW tokens have 0 decimals
+        )?;
+
+        // Add cows to farm
+        farm.cows = farm.cows
+            .checked_add(num_cows)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        // Update global cow count
+        config.global_cows_count = config.global_cows_count
+            .checked_add(num_cows)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        // Calculate new reward rate
+        let new_reward_rate = calculate_reward_rate(config.global_cows_count, ctx.accounts.pool_token_account.amount)?;
+        farm.last_reward_rate = new_reward_rate;
+
+        msg!("Successfully imported {} COW tokens to cows. User total cows: {}, Global total: {}", 
+             num_cows, farm.cows, config.global_cows_count);
+        Ok(())
+    }
 }
 
 /// Calculate dynamic cow price based on global cow count
@@ -356,6 +490,7 @@ fn update_farm_rewards(
 pub struct Config {
     pub admin: Pubkey,                    // 32 bytes
     pub milk_mint: Pubkey,               // 32 bytes  
+    pub cow_mint: Pubkey,                // 32 bytes
     pub pool_token_account: Pubkey,      // 32 bytes
     pub start_time: i64,                 // 8 bytes
     pub global_cows_count: u64,          // 8 bytes
@@ -377,7 +512,7 @@ pub struct InitializeConfig<'info> {
     #[account(
         init,
         payer = admin,
-        space = 8 + 32 + 32 + 32 + 8 + 8 + 8, // discriminator + Config struct
+        space = 8 + 32 + 32 + 32 + 32 + 8 + 8 + 8, // discriminator + Config struct
         seeds = [b"config"],
         bump
     )]
@@ -386,6 +521,24 @@ pub struct InitializeConfig<'info> {
     #[account(constraint = milk_mint.decimals <= 9)]
     pub milk_mint: Account<'info, Mint>,
 
+    #[account(
+        init,
+        payer = admin,
+        mint::decimals = 0,
+        mint::authority = admin,
+        mint::freeze_authority = admin,
+        seeds = [b"cow_mint", config.key().as_ref()],
+        bump
+    )]
+    pub cow_mint: Account<'info, Mint>,
+
+    #[account(
+        seeds = [b"cow_mint_authority", config.key().as_ref()],
+        bump
+    )]
+    /// CHECK: This is a PDA used as authority for COW token mint
+    pub cow_mint_authority: UncheckedAccount<'info>,
+
     /// CHECK: Pool token account will be validated during runtime
     pub pool_token_account: Account<'info, TokenAccount>,
 
@@ -393,6 +546,35 @@ pub struct InitializeConfig<'info> {
     pub admin: Signer<'info>,
     
     pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct TransferCowMintAuthority<'info> {
+    #[account(
+        seeds = [b"config"], 
+        bump,
+        constraint = config.admin == admin.key() @ ErrorCode::Unauthorized
+    )]
+    pub config: Account<'info, Config>,
+
+    #[account(
+        mut,
+        constraint = cow_mint.key() == config.cow_mint @ ErrorCode::InvalidCowMint
+    )]
+    pub cow_mint: Account<'info, Mint>,
+
+    #[account(
+        seeds = [b"cow_mint_authority", config.key().as_ref()],
+        bump
+    )]
+    /// CHECK: This is a PDA used as authority for COW token mint
+    pub cow_mint_authority: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
@@ -524,6 +706,96 @@ pub struct GetGlobalStats<'info> {
 }
 
 #[derive(Accounts)]
+pub struct ExportCows<'info> {
+    #[account(
+        seeds = [b"config"], 
+        bump
+    )]
+    pub config: Account<'info, Config>,
+
+    #[account(
+        mut,
+        seeds = [b"farm", user.key().as_ref()],
+        bump,
+        constraint = farm.owner == user.key() @ ErrorCode::Unauthorized
+    )]
+    pub farm: Account<'info, FarmAccount>,
+
+    #[account(
+        mut,
+        constraint = cow_mint.key() == config.cow_mint @ ErrorCode::InvalidCowMint
+    )]
+    pub cow_mint: Account<'info, Mint>,
+
+    #[account(
+        seeds = [b"cow_mint_authority", config.key().as_ref()],
+        bump
+    )]
+    /// CHECK: This is a PDA used as authority for COW token mint
+    pub cow_mint_authority: UncheckedAccount<'info>,
+
+    #[account(
+        mut,
+        constraint = user_cow_token_account.mint == config.cow_mint @ ErrorCode::InvalidMint,
+        constraint = user_cow_token_account.owner == user.key() @ ErrorCode::InvalidOwner
+    )]
+    pub user_cow_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        constraint = pool_token_account.key() == config.pool_token_account @ ErrorCode::InvalidPoolAccount
+    )]
+    pub pool_token_account: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct ImportCows<'info> {
+    #[account(
+        mut,
+        seeds = [b"config"], 
+        bump
+    )]
+    pub config: Account<'info, Config>,
+
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + 32 + 8 + 8 + 8 + 8 + 8, // discriminator + FarmAccount struct
+        seeds = [b"farm", user.key().as_ref()],
+        bump
+    )]
+    pub farm: Account<'info, FarmAccount>,
+
+    #[account(
+        mut,
+        constraint = cow_mint.key() == config.cow_mint @ ErrorCode::InvalidCowMint
+    )]
+    pub cow_mint: Account<'info, Mint>,
+
+    #[account(
+        mut,
+        constraint = user_cow_token_account.mint == config.cow_mint @ ErrorCode::InvalidMint,
+        constraint = user_cow_token_account.owner == user.key() @ ErrorCode::InvalidOwner
+    )]
+    pub user_cow_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        constraint = pool_token_account.key() == config.pool_token_account @ ErrorCode::InvalidPoolAccount
+    )]
+    pub pool_token_account: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 pub struct V3Migrating<'info> {
     #[account(
         seeds = [b"config"], 
@@ -586,4 +858,8 @@ pub enum ErrorCode {
     NoFundsToMigrate,
     #[msg("Cannot buy more than 50 cows per transaction")]
     ExceedsMaxCowsPerTransaction,
+    #[msg("Insufficient cows to export")]
+    InsufficientCows,
+    #[msg("Invalid COW mint address")]
+    InvalidCowMint,
 }
