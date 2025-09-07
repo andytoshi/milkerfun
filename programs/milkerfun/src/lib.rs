@@ -14,7 +14,7 @@ const GREED_DECAY_PIVOT: f64 = 1_500.0; // C₀
 const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
 const MAX_COWS_PER_TRANSACTION: u64 = 50; // Maximum cows per buy transaction
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("4E98KvnTQq5DfbcSKRC6yTiLsbuqH3GZxxofKSHxb6c2");
 
 #[program]
 pub mod milkerfun {
@@ -486,11 +486,9 @@ pub struct InitializeConfig<'info> {
     )]
     pub config: Account<'info, Config>,
 
-    #[account(constraint = milk_mint.decimals <= 9)]
+    #[account(constraint = milk_mint.decimals == 6)]
     pub milk_mint: Account<'info, Mint>,
 
-    #[account(constraint = cow_mint.decimals == 0)]
-    pub cow_mint: Account<'info, Mint>,
     #[account(constraint = cow_mint.decimals == 6)]
     pub cow_mint: Account<'info, Mint>,
 
