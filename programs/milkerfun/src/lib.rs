@@ -3,9 +3,8 @@ use anchor_spl::{
     token::{self, Mint, Token, TokenAccount, Transfer, MintTo, Burn},
     metadata::{
         create_metadata_accounts_v3,
-        mpl_token_metadata::types::DataV2,
-        CreateMetadataAccountsV3, 
-        Metadata as Metaplex,
+        mpl_token_metadata::types::{DataV2, Creator},
+        CreateMetadataAccountsV3, Metadata,
     },
 };
 
@@ -22,7 +21,7 @@ const GREED_DECAY_PIVOT: f64 = 1_500.0; // C₀
 const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
 const MAX_COWS_PER_TRANSACTION: u64 = 50; // Maximum cows per buy transaction
 
-declare_id!("B3i8YuL2f6mr4c8XMvBMx9kq4ex3onY7e2GLt8ECRmmH");
+declare_id!("11111111111111111111111111111111");
 
 #[program]
 pub mod milkerfun {
@@ -40,41 +39,45 @@ pub mod milkerfun {
         config.global_cows_count = 0;
         config.initial_tvl = INITIAL_TVL;
         
-        // Create COW token metadata
+        // Create metadata for COW token (SPL token style - no collection)
         let config_key = config.key();
-        let seeds = &[b"cow_mint_authority", config_key.as_ref(), &[ctx.bumps.cow_mint_authority]];
-        let signer = [&seeds[..]];
-
-        let token_data: DataV2 = DataV2 {
-            name: "MilkerFun".to_string(),
-            symbol: "COW".to_string(),
-            uri: "https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cowmeta.json".to_string(),
-            seller_fee_basis_points: 0,
-            creators: None,
-            collection: None,
-            uses: None,
-        };
-
-        let metadata_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_metadata_program.to_account_info(),
-            CreateMetadataAccountsV3 {
-                payer: ctx.accounts.admin.to_account_info(),
-                update_authority: ctx.accounts.cow_mint_authority.to_account_info(),
-                mint: ctx.accounts.cow_mint.to_account_info(),
-                metadata: ctx.accounts.cow_metadata.to_account_info(),
-                mint_authority: ctx.accounts.cow_mint_authority.to_account_info(),
-                system_program: ctx.accounts.system_program.to_account_info(),
-                rent: ctx.accounts.rent.to_account_info(),
-            },
-            &signer
-        );
+        let seeds = &[
+            b"cow_mint_authority",
+            config_key.as_ref(),
+            &[ctx.bumps.cow_mint_authority],
+        ];
+        let signer_seeds = &[&seeds[..]];
 
         create_metadata_accounts_v3(
-            metadata_ctx,
-            token_data,
-            false, // is_mutable
+            CpiContext::new_with_signer(
+                ctx.accounts.token_metadata_program.to_account_info(),
+                CreateMetadataAccountsV3 {
+                    metadata: ctx.accounts.cow_metadata.to_account_info(),
+                    mint: ctx.accounts.cow_mint.to_account_info(),
+                    mint_authority: ctx.accounts.cow_mint_authority.to_account_info(),
+                    update_authority: ctx.accounts.cow_mint_authority.to_account_info(),
+                    payer: ctx.accounts.admin.to_account_info(),
+                    system_program: ctx.accounts.system_program.to_account_info(),
+                    rent: ctx.accounts.rent.to_account_info(),
+                },
+                signer_seeds,
+            ),
+            DataV2 {
+                name: "MilkerFun COW".to_string(),
+                symbol: "COW".to_string(),
+                uri: "https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cowmeta.json".to_string(),
+                seller_fee_basis_points: 0,
+                creators: Some(vec![Creator {
+                    address: ctx.accounts.cow_mint_authority.key(),
+                    verified: true,
+                    share: 100,
+                }]),
+                collection: None, // CRITICAL: No collection = SPL token behavior
+                uses: None,
+            },
+            true,  // is_mutable
             true,  // update_authority_is_signer
-            None,  // collection_details
+            None,  // collection_details = None for SPL tokens
         )?;
 
         msg!("Config initialized - Start time: {}, Initial TVL: {} MILK, Pool: {}, COW Mint: {}", 
@@ -550,10 +553,10 @@ pub struct InitializeConfig<'info> {
     )]
     /// CHECK: This is a PDA used as mint authority for COW tokens
     pub cow_mint_authority: UncheckedAccount<'info>,
-    /// CHECK: New Metaplex Account being created
+
+    /// CHECK: Metadata account for COW token
     #[account(mut)]
     pub cow_metadata: UncheckedAccount<'info>,
-
     /// CHECK: Pool token account will be validated during runtime
     pub pool_token_account: Account<'info, TokenAccount>,
 
@@ -563,7 +566,8 @@ pub struct InitializeConfig<'info> {
     pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
-    pub token_metadata_program: Program<'info, Metaplex>,
+    /// CHECK: Metaplex Token Metadata Program
+    pub token_metadata_program: UncheckedAccount<'info>,
 }
 
 

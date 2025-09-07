@@ -216,13 +216,13 @@ async function main() {
         milkMint: milkMint,
         cowMint: cowMintPda,
         cowMintAuthority: cowMintAuthorityPda,
-        cowMetadata: cowMetadataPda,
+       cowMetadata: cowMetadataPda,
         poolTokenAccount: poolTokenAccount,
         admin: wallet.publicKey,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
-        tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+       tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
       })
       .rpc({
         commitment: 'finalized',
