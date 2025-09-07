@@ -274,6 +274,7 @@ pub mod milkerfun {
             .ok_or(ErrorCode::MathOverflow)?;
 
         // Mint COW tokens to user (1 cow = 1 COW token with 0 decimals)
+        // Mint COW tokens to user (1 cow = 1 COW token with 6 decimals)
         let config_key = config.key();
         let seeds = &[
             b"cow_mint_authority",
@@ -292,7 +293,7 @@ pub mod milkerfun {
                 },
                 signer_seeds,
             ),
-            num_cows, // COW tokens have 0 decimals, so 1 cow = 1 token
+            num_cows * 1_000_000, // COW tokens have 6 decimals, so 1 cow = 1,000,000 tokens
         )?;
 
         msg!("Successfully exported {} cows to COW tokens. User cows remaining: {}", 
@@ -331,7 +332,7 @@ pub mod milkerfun {
                     authority: ctx.accounts.user.to_account_info(),
                 },
             ),
-            num_cows, // COW tokens have 0 decimals
+            num_cows * 1_000_000, // COW tokens have 6 decimals
         )?;
 
         // Add cows to farm
@@ -489,6 +490,8 @@ pub struct InitializeConfig<'info> {
     pub milk_mint: Account<'info, Mint>,
 
     #[account(constraint = cow_mint.decimals == 0)]
+    pub cow_mint: Account<'info, Mint>,
+    #[account(constraint = cow_mint.decimals == 6)]
     pub cow_mint: Account<'info, Mint>,
 
     #[account(

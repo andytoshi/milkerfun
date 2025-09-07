@@ -474,6 +474,15 @@ The system maintains healthy token velocity through:
 
 ---
 
+## Workflow:
+
+1. **Create COW token externally** (using Solana CLI, web interface, or another tool) with your admin wallet as mint authority
+   - **Important**: Create with 6 decimals to match MILK token
+2. **Update COW_MINT addresses** in `deploy-setup.ts` with your actual COW mint address
+3. **Run deploy-setup** - initializes config with external COW mint
+4. **Run transfer-cow-authority** - transfers COW mint authority from admin to PDA
+5. **Export/Import functionality enabled** - users can now convert cows to tradeable COW tokens
+
 ## Conclusion
 
 MilkerFun represents a paradigm shift in decentralized gaming economics, implementing sophisticated mathematical models that create sustainable, self-regulating tokenomics. The system's innovative combination of dynamic pricing, TVL-responsive rewards, and anti-dump mechanisms creates a robust economic framework that incentivizes long-term participation while protecting against market manipulation.

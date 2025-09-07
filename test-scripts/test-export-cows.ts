@@ -120,9 +120,9 @@ async function testExportCows() {
     let cowBalanceBefore = 0;
     try {
       const cowTokenAccount = await getAccount(provider.connection, userCowTokenAccount);
-      cowBalanceBefore = Number(cowTokenAccount.amount);
+      cowBalanceBefore = Number(cowTokenAccount.amount) / 1_000_000; // Convert from 6 decimals
       cowTokenAccountExists = true;
-      console.log(`💰 Current COW token balance: ${cowBalanceBefore}`);
+      console.log(`💰 Current COW token balance: ${cowBalanceBefore} COW`);
     } catch (error) {
       console.log("🆕 COW token account doesn't exist yet, will create it");
     }
@@ -210,14 +210,14 @@ async function testExportCows() {
       
       const farmAfter = await program.account.farmAccount.fetch(farmPda, 'confirmed');
       const cowTokenAccountAfter = await getAccount(provider.connection, userCowTokenAccount, 'confirmed');
-      const cowBalanceAfter = Number(cowTokenAccountAfter.amount);
+      const cowBalanceAfter = Number(cowTokenAccountAfter.amount) / 1_000_000; // Convert from 6 decimals
       
       console.log(`\n📊 Results:`);
       console.log(`🐄 Cows before: ${farm.cows.toNumber()}`);
       console.log(`🐄 Cows after: ${farmAfter.cows.toNumber()}`);
       console.log(`🐄 Cows exported: ${farm.cows.toNumber() - farmAfter.cows.toNumber()}`);
-      console.log(`🪙 COW tokens before: ${cowBalanceBefore}`);
-      console.log(`🪙 COW tokens after: ${cowBalanceAfter}`);
+      console.log(`🪙 COW tokens before: ${cowBalanceBefore} COW`);
+      console.log(`🪙 COW tokens after: ${cowBalanceAfter} COW`);
       console.log(`🪙 COW tokens received: ${cowBalanceAfter - cowBalanceBefore}`);
       console.log(`💰 Accumulated rewards: ${farmAfter.accumulatedRewards.toNumber() / 1_000_000} MILK`);
       console.log(`⏰ Last update: ${new Date(farmAfter.lastUpdateTime.toNumber() * 1000).toISOString()}`);

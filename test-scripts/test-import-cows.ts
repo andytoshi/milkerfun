@@ -107,8 +107,8 @@ async function testImportCows() {
     let cowBalanceBefore;
     try {
       const cowTokenAccount = await getAccount(provider.connection, userCowTokenAccount);
-      cowBalanceBefore = Number(cowTokenAccount.amount);
-      console.log(`🪙 Current COW token balance: ${cowBalanceBefore}`);
+      cowBalanceBefore = Number(cowTokenAccount.amount) / 1_000_000; // Convert from 6 decimals
+      console.log(`🪙 Current COW token balance: ${cowBalanceBefore} COW`);
     } catch (error) {
       console.error("❌ COW token account not found:");
       console.error("Error:", error.message);
@@ -125,7 +125,7 @@ async function testImportCows() {
     }
 
     // Test importing 1 COW token (or all if less than 1)
-    const numCows = Math.min(1, cowBalanceBefore);
+    const numCows = Math.min(1, Math.floor(cowBalanceBefore));
     console.log(`\n📥 Attempting to import ${numCows} COW token(s) to cows...`);
 
     // Execute import_cows transaction
@@ -192,7 +192,7 @@ async function testImportCows() {
       
       const farmAfter = await program.account.farmAccount.fetch(farmPda, 'confirmed');
       const cowTokenAccountAfter = await getAccount(provider.connection, userCowTokenAccount, 'confirmed');
-      const cowBalanceAfter = Number(cowTokenAccountAfter.amount);
+      const cowBalanceAfter = Number(cowTokenAccountAfter.amount) / 1_000_000; // Convert from 6 decimals
       
       // Get updated config for global cow count
       const configAfter = await program.account.config.fetch(configPda, 'confirmed');
@@ -201,8 +201,8 @@ async function testImportCows() {
       console.log(`🐄 Cows before: ${farm.cows.toNumber()}`);
       console.log(`🐄 Cows after: ${farmAfter.cows.toNumber()}`);
       console.log(`🐄 Cows gained: ${farmAfter.cows.toNumber() - farm.cows.toNumber()}`);
-      console.log(`🪙 COW tokens before: ${cowBalanceBefore}`);
-      console.log(`🪙 COW tokens after: ${cowBalanceAfter}`);
+      console.log(`🪙 COW tokens before: ${cowBalanceBefore} COW`);
+      console.log(`🪙 COW tokens after: ${cowBalanceAfter} COW`);
       console.log(`🪙 COW tokens burned: ${cowBalanceBefore - cowBalanceAfter}`);
       console.log(`💰 Accumulated rewards: ${farmAfter.accumulatedRewards.toNumber() / 1_000_000} MILK`);
       console.log(`🌍 Global cows count: ${configAfter.globalCowsCount.toNumber()}`);
