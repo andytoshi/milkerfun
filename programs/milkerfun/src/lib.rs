@@ -22,7 +22,7 @@ const GREED_DECAY_PIVOT: f64 = 1_500.0; // C₀
 const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
 const MAX_COWS_PER_TRANSACTION: u64 = 50; // Maximum cows per buy transaction
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("3sFYBexRVKimNd23YYG1JGfsKsz8i8JaEWwAP4PV1Na5");
 
 #[program]
 pub mod milkerfun {
@@ -41,7 +41,8 @@ pub mod milkerfun {
         config.initial_tvl = INITIAL_TVL;
         
         // Create COW token metadata
-        let seeds = &[b"cow_mint", config.key().as_ref(), &[ctx.bumps.cow_mint]];
+        let config_key = config.key();
+        let seeds = &[b"cow_mint_authority", config_key.as_ref(), &[ctx.bumps.cow_mint_authority]];
         let signer = [&seeds[..]];
 
         let token_data: DataV2 = DataV2 {
@@ -58,10 +59,10 @@ pub mod milkerfun {
             ctx.accounts.token_metadata_program.to_account_info(),
             CreateMetadataAccountsV3 {
                 payer: ctx.accounts.admin.to_account_info(),
-                update_authority: ctx.accounts.cow_mint.to_account_info(),
+                update_authority: ctx.accounts.cow_mint_authority.to_account_info(),
                 mint: ctx.accounts.cow_mint.to_account_info(),
                 metadata: ctx.accounts.cow_metadata.to_account_info(),
-                mint_authority: ctx.accounts.cow_mint.to_account_info(),
+                mint_authority: ctx.accounts.cow_mint_authority.to_account_info(),
                 system_program: ctx.accounts.system_program.to_account_info(),
                 rent: ctx.accounts.rent.to_account_info(),
             },
@@ -320,9 +321,9 @@ pub mod milkerfun {
         // Mint COW tokens to user (1 cow = 1 COW token with 0 decimals)
         let config_key = config.key();
         let seeds = &[
-            b"cow_mint",
+            b"cow_mint_authority",
             config_key.as_ref(),
-            &[ctx.bumps.cow_mint],
+            &[ctx.bumps.cow_mint_authority],
         ];
         let signer_seeds = &[&seeds[..]];
 
@@ -332,7 +333,7 @@ pub mod milkerfun {
                 MintTo {
                     mint: ctx.accounts.cow_mint.to_account_info(),
                     to: ctx.accounts.user_cow_token_account.to_account_info(),
-                    authority: ctx.accounts.cow_mint.to_account_info(),
+                    authority: ctx.accounts.cow_mint_authority.to_account_info(),
                 },
                 signer_seeds,
             ),
@@ -536,13 +537,19 @@ pub struct InitializeConfig<'info> {
         init,
         payer = admin,
         mint::decimals = 0,
-        mint::authority = cow_mint,
-        mint::freeze_authority = cow_mint,
+        mint::authority = cow_mint_authority,
+        mint::freeze_authority = cow_mint_authority,
         seeds = [b"cow_mint", config.key().as_ref()],
         bump
     )]
     pub cow_mint: Account<'info, Mint>,
 
+    #[account(
+        seeds = [b"cow_mint_authority", config.key().as_ref()],
+        bump
+    )]
+    /// CHECK: This is a PDA used as mint authority for COW tokens
+    pub cow_mint_authority: UncheckedAccount<'info>,
     /// CHECK: New Metaplex Account being created
     #[account(mut)]
     pub cow_metadata: UncheckedAccount<'info>,
@@ -710,6 +717,12 @@ pub struct ExportCows<'info> {
     )]
     pub cow_mint: Account<'info, Mint>,
 
+    #[account(
+        seeds = [b"cow_mint_authority", config.key().as_ref()],
+        bump
+    )]
+    /// CHECK: This is a PDA used as mint authority for COW tokens
+    pub cow_mint_authority: UncheckedAccount<'info>,
 
     #[account(
         mut,
