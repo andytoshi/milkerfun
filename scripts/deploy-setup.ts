@@ -5,7 +5,6 @@ import {
   createInitializeAccountInstruction,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import * as fs from "fs";
 import * as os from "os";
@@ -64,22 +63,21 @@ async function main() {
     program.programId
   );
 
-  const [cowMintAuthorityPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("cow_mint_authority"), configPda.toBuffer()],
-    program.programId
-  );
-
   console.log("Config PDA:", configPda.toString());
   console.log("Pool Authority PDA:", poolAuthorityPda.toString());
-  console.log("COW Mint Authority PDA:", cowMintAuthorityPda.toString());
 
   const [cowMintPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("cow_mint"), configPda.toBuffer()],
     program.programId
   );
 
-  console.log("COW Mint PDA:", cowMintPda.toString());
+  const [cowMintAuthorityPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("cow_mint_authority"), configPda.toBuffer()],
+    program.programId
+  );
 
+  console.log("COW Mint PDA:", cowMintPda.toString());
+  console.log("COW Mint Authority PDA:", cowMintAuthorityPda.toString());
 
   // Check if pool token account already exists
   let poolTokenAccount: PublicKey;
@@ -195,21 +193,16 @@ async function main() {
 
   // Initialize config with proper error handling
   let tx;
-  console.log("Initializing config with verified pool token account and COW mint (Token 2022)...");
+  console.log("Initializing config with verified pool token account and COW mint...");
   try {
     tx = await program.methods
       .initializeConfig()
       .accountsPartial({
-        config: configPda,
         milkMint: milkMint,
         cowMint: cowMintPda,
         cowMintAuthority: cowMintAuthorityPda,
         poolTokenAccount: poolTokenAccount,
         admin: wallet.publicKey,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
-        token2022Program: TOKEN_2022_PROGRAM_ID,
       })
       .rpc({
         commitment: 'finalized',
@@ -284,17 +277,11 @@ async function main() {
   console.log("1. Fund the pool token account with MILK tokens using 'yarn fund-pool <amount>'");
   console.log("2. Users can run 'yarn user-setup' to create their token accounts");
   console.log("3. Run 'yarn check-status' to verify everything is working");
-  console.log("4. Test export/import: 'yarn test-export' and 'yarn test-import'");
   console.log("\n💡 Economic Model:");
   console.log("- Dynamic cow pricing based on global supply");
   console.log("- Dynamic rewards based on TVL/Cow ratio");
   console.log("- Early adopter greed boost that decays over time");
   console.log("- Anti-dump mechanism: lower TVL = higher rewards");
-  console.log("\n💡 COW Token Behavior:");
-  console.log("- Pure Token 2022 SPL token with 0 decimals");
-  console.log("- PDA owned and controlled by program");
-  console.log("- Fully tradeable on DEXs");
-  console.log("- Each token = 1 cow");
 }
 
 main().catch((error) => {

@@ -1,10 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{
-    token::{self, Mint, Token, TokenAccount, Transfer, MintTo, Burn},
-    token_2022::{self, Token2022, initialize_metadata_pointer, initialize_metadata},
-    token_interface::{Mint as MintInterface, TokenAccount as TokenAccountInterface},
-    metadata::{Metadata, MetadataAccount},
-};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer, MintTo, Burn};
 
 const SECONDS_PER_DAY: i64 = 86400; // 24 * 60 * 60
 const COW_BASE_PRICE: u64 = 6_000_000_000; // 6,000 MILK (6 decimals)
@@ -19,7 +14,7 @@ const GREED_DECAY_PIVOT: f64 = 1_500.0; // C₀
 const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
 const MAX_COWS_PER_TRANSACTION: u64 = 50; // Maximum cows per buy transaction
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("AVYas4HNEK7aLqiBR9WLLPcPcEf3YMuQMN8PJMtptNhk");
 
 #[program]
 pub mod milkerfun {
@@ -37,50 +32,44 @@ pub mod milkerfun {
         config.global_cows_count = 0;
         config.initial_tvl = INITIAL_TVL;
         
-        // Initialize COW token metadata directly in program
-        let config_key = config.key();
-        let seeds = &[
-            b"cow_mint_authority",
-            config_key.as_ref(),
-            &[ctx.bumps.cow_mint_authority],
-        ];
-        let signer_seeds = &[&seeds[..]];
-
-        // Initialize metadata pointer
-        initialize_metadata_pointer(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_2022_program.to_account_info(),
-                anchor_spl::token_2022::InitializeMetadataPointer {
-                    mint: ctx.accounts.cow_mint.to_account_info(),
-                },
-                signer_seeds,
-            ),
-            Some(ctx.accounts.cow_mint_authority.key()),
-            Some(ctx.accounts.cow_mint.key()),
-        )?;
-
-        // Initialize metadata with hardcoded values
-        initialize_metadata(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_2022_program.to_account_info(),
-                anchor_spl::token_2022::InitializeMetadata {
-                    metadata: ctx.accounts.cow_mint.to_account_info(),
-                    mint: ctx.accounts.cow_mint.to_account_info(),
-                    mint_authority: ctx.accounts.cow_mint_authority.to_account_info(),
-                    update_authority: ctx.accounts.cow_mint_authority.to_account_info(),
-                },
-                signer_seeds,
-            ),
-            "MilkerFun".to_string(),      // name
-            "COW".to_string(),            // symbol  
-            "https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cow.png".to_string(), // uri
-        )?;
-
         msg!("Config initialized - Start time: {}, Initial TVL: {} MILK, Pool: {}, COW Mint: {}", 
              current_time, INITIAL_TVL / 1_000_000, config.pool_token_account, config.cow_mint);
         Ok(())
     }
 
+    pub fn transfer_cow_mint_authority(ctx: Context<TransferCowMintAuthority>) -> Result<()> {
+        msg!("Transferring COW mint authority from admin to PDA");
+        
+        // Transfer mint authority to PDA
+        let cpi_accounts = anchor_spl::token::SetAuthority {
+            account_or_mint: ctx.accounts.cow_mint.to_account_info(),
+            current_authority: ctx.accounts.admin.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        
+        anchor_spl::token::set_authority(
+            cpi_ctx,
+            anchor_spl::token::spl_token::instruction::AuthorityType::MintTokens,
+            Some(ctx.accounts.cow_mint_authority.key()),
+        )?;
+        
+        // Also transfer freeze authority to PDA
+        let cpi_accounts_freeze = anchor_spl::token::SetAuthority {
+            account_or_mint: ctx.accounts.cow_mint.to_account_info(),
+            current_authority: ctx.accounts.admin.to_account_info(),
+        };
+        let cpi_ctx_freeze = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts_freeze);
+        
+        anchor_spl::token::set_authority(
+            cpi_ctx_freeze,
+            anchor_spl::token::spl_token::instruction::AuthorityType::FreezeAccount,
+            Some(ctx.accounts.cow_mint_authority.key()),
+        )?;
+        
+        msg!("COW mint authority successfully transferred to PDA: {}", ctx.accounts.cow_mint_authority.key());
+        Ok(())
+    }
 
     pub fn buy_cows(ctx: Context<BuyCows>, num_cows: u64) -> Result<()> {
         require!(num_cows > 0, ErrorCode::InvalidAmount);
@@ -326,9 +315,9 @@ pub mod milkerfun {
         ];
         let signer_seeds = &[&seeds[..]];
 
-        token_2022::mint_to(
+        token::mint_to(
             CpiContext::new_with_signer(
-                ctx.accounts.token_2022_program.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
                 MintTo {
                     mint: ctx.accounts.cow_mint.to_account_info(),
                     to: ctx.accounts.user_cow_token_account.to_account_info(),
@@ -366,9 +355,9 @@ pub mod milkerfun {
         msg!("Importing {} COW tokens to cows for user: {}", num_cows, ctx.accounts.user.key());
 
         // Burn COW tokens from user
-        token_2022::burn(
+        token::burn(
             CpiContext::new(
-                ctx.accounts.token_2022_program.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
                 Burn {
                     mint: ctx.accounts.cow_mint.to_account_info(),
                     from: ctx.accounts.user_cow_token_account.to_account_info(),
@@ -535,22 +524,19 @@ pub struct InitializeConfig<'info> {
     #[account(
         init,
         payer = admin,
-        space = 250, // Extra space for metadata
-        seeds = [b"cow_mint", config.key().as_ref()],
-        bump,
         mint::decimals = 0,
-        mint::authority = cow_mint_authority.key(),
-        mint::token_program = token_2022_program,
-        extensions::metadata_pointer::authority = cow_mint_authority.key(),
-        extensions::metadata_pointer::metadata_address = cow_mint.key(),
+        mint::authority = admin,
+        mint::freeze_authority = admin,
+        seeds = [b"cow_mint", config.key().as_ref()],
+        bump
     )]
-    pub cow_mint: InterfaceAccount<'info, MintInterface>,
+    pub cow_mint: Account<'info, Mint>,
 
     #[account(
         seeds = [b"cow_mint_authority", config.key().as_ref()],
         bump
     )]
-    /// CHECK: This is a PDA used as mint authority for COW tokens
+    /// CHECK: This is a PDA used as authority for COW token mint
     pub cow_mint_authority: UncheckedAccount<'info>,
 
     /// CHECK: Pool token account will be validated during runtime
@@ -559,12 +545,37 @@ pub struct InitializeConfig<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
     
-    pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
-    pub token_2022_program: Program<'info, Token2022>,
 }
 
+#[derive(Accounts)]
+pub struct TransferCowMintAuthority<'info> {
+    #[account(
+        seeds = [b"config"], 
+        bump,
+        constraint = config.admin == admin.key() @ ErrorCode::Unauthorized
+    )]
+    pub config: Account<'info, Config>,
+
+    #[account(
+        mut,
+        constraint = cow_mint.key() == config.cow_mint @ ErrorCode::InvalidCowMint
+    )]
+    pub cow_mint: Account<'info, Mint>,
+
+    #[account(
+        seeds = [b"cow_mint_authority", config.key().as_ref()],
+        bump
+    )]
+    /// CHECK: This is a PDA used as authority for COW token mint
+    pub cow_mint_authority: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    
+    pub token_program: Program<'info, Token>,
+}
 
 #[derive(Accounts)]
 pub struct BuyCows<'info> {
@@ -714,13 +725,13 @@ pub struct ExportCows<'info> {
         mut,
         constraint = cow_mint.key() == config.cow_mint @ ErrorCode::InvalidCowMint
     )]
-    pub cow_mint: InterfaceAccount<'info, MintInterface>,
+    pub cow_mint: Account<'info, Mint>,
 
     #[account(
         seeds = [b"cow_mint_authority", config.key().as_ref()],
         bump
     )]
-    /// CHECK: This is a PDA used as mint authority for COW tokens
+    /// CHECK: This is a PDA used as authority for COW token mint
     pub cow_mint_authority: UncheckedAccount<'info>,
 
     #[account(
@@ -728,7 +739,7 @@ pub struct ExportCows<'info> {
         constraint = user_cow_token_account.mint == config.cow_mint @ ErrorCode::InvalidMint,
         constraint = user_cow_token_account.owner == user.key() @ ErrorCode::InvalidOwner
     )]
-    pub user_cow_token_account: InterfaceAccount<'info, TokenAccountInterface>,
+    pub user_cow_token_account: Account<'info, TokenAccount>,
 
     #[account(
         constraint = pool_token_account.key() == config.pool_token_account @ ErrorCode::InvalidPoolAccount
@@ -738,7 +749,7 @@ pub struct ExportCows<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    pub token_2022_program: Program<'info, Token2022>,
+    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
@@ -763,14 +774,14 @@ pub struct ImportCows<'info> {
         mut,
         constraint = cow_mint.key() == config.cow_mint @ ErrorCode::InvalidCowMint
     )]
-    pub cow_mint: InterfaceAccount<'info, MintInterface>,
+    pub cow_mint: Account<'info, Mint>,
 
     #[account(
         mut,
         constraint = user_cow_token_account.mint == config.cow_mint @ ErrorCode::InvalidMint,
         constraint = user_cow_token_account.owner == user.key() @ ErrorCode::InvalidOwner
     )]
-    pub user_cow_token_account: InterfaceAccount<'info, TokenAccountInterface>,
+    pub user_cow_token_account: Account<'info, TokenAccount>,
 
     #[account(
         constraint = pool_token_account.key() == config.pool_token_account @ ErrorCode::InvalidPoolAccount
@@ -780,7 +791,7 @@ pub struct ImportCows<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
-    pub token_2022_program: Program<'info, Token2022>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 

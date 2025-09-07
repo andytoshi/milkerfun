@@ -20,13 +20,14 @@
     "test-compound": "ts-node test-scripts/test-compound-cows.ts",
     "test-export": "ts-node test-scripts/test-export-cows.ts",
     "test-import": "ts-node test-scripts/test-import-cows.ts",
-    "test-full-flow": "ts-node test-scripts/test-full-flow.ts"
+    "test-full-flow": "ts-node test-scripts/test-full-flow.ts",
+    "setup-cow-metadata": "ts-node scripts/setup-cow-metadata.ts",
+    "transfer-cow-authority": "ts-node scripts/transfer-cow-authority.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
     "@solana/spl-token": "^0.4.8",
-    "@solana/web3.js": "^1.95.4",
-    "@solana/spl-token-metadata": "^0.1.4"
+    "@solana/web3.js": "^1.95.4"
   },
   "devDependencies": {
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
