@@ -22,7 +22,7 @@ const GREED_DECAY_PIVOT: f64 = 1_500.0; // C₀
 const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
 const MAX_COWS_PER_TRANSACTION: u64 = 50; // Maximum cows per buy transaction
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("B3i8YuL2f6mr4c8XMvBMx9kq4ex3onY7e2GLt8ECRmmH");
 
 #[program]
 pub mod milkerfun {
