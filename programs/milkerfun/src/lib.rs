@@ -45,7 +45,7 @@ pub mod milkerfun {
         let signer = [&seeds[..]];
 
         let token_data: DataV2 = DataV2 {
-            name: "MilkerFun COW".to_string(),
+            name: "MilkerFun".to_string(),
             symbol: "COW".to_string(),
             uri: "https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cowmeta.json".to_string(),
             seller_fee_basis_points: 0,
