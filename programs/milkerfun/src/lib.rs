@@ -63,7 +63,7 @@ pub mod milkerfun {
                 signer_seeds,
             ),
             DataV2 {
-                name: "MilkerFuns".to_string(),
+                name: "MilkerFun".to_string(),
                 symbol: "COW".to_string(),
                 uri: "https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cowmeta.json".to_string(),
                 seller_fee_basis_points: 0,
