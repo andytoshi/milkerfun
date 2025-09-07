@@ -1,7 +1,12 @@
 {
-      "name": "milkerfun",
-      "symbol": "COW",
-      "description": "Tradeable cows from MilkerFun yield farming protocol. Import to your farm to earn MILK rewards.",
-      "image": "https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cow.png",
-      "external_url": "https://milker.fun"
+  "name": "milkerfun",
+  "symbol": "COW", 
+  "description": "Tradeable cows from MilkerFun yield farming protocol. Import to your farm to earn MILK rewards.",
+  "image": "https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cow.png",
+  "external_url": "https://milker.fun",
+  "tags": ["spl-token", "defi", "yield-farming"],
+  "extensions": {
+    "website": "https://milker.fun",
+    "twitter": "https://x.com/i/communities/1962235115448279104"
+  }
 }
