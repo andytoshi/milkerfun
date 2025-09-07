@@ -71,6 +71,20 @@ async function main() {
     program.programId
   );
 
+  // Find metadata PDA for COW token
+  const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+  const [cowMetadataPda] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("metadata"),
+      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+      cowMintPda.toBuffer(),
+    ],
+    TOKEN_METADATA_PROGRAM_ID
+  );
+
+  console.log("COW Mint PDA:", cowMintPda.toString());
+  console.log("COW Metadata PDA:", cowMetadataPda.toString());
+
   const [cowMintAuthorityPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("cow_mint_authority"), configPda.toBuffer()],
     program.programId
@@ -276,12 +290,19 @@ async function main() {
   console.log("\n⚠️  NEXT STEPS:");
   console.log("1. Fund the pool token account with MILK tokens using 'yarn fund-pool <amount>'");
   console.log("2. Users can run 'yarn user-setup' to create their token accounts");
-  console.log("3. Run 'yarn check-status' to verify everything is working");
+  console.log("3. Run 'yarn setup-cow-metadata' to add token name, symbol, and image");
+  console.log("4. Run 'yarn transfer-cow-authority' to enable export/import");
+  console.log("5. Run 'yarn check-status' to verify everything is working");
   console.log("\n💡 Economic Model:");
   console.log("- Dynamic cow pricing based on global supply");
   console.log("- Dynamic rewards based on TVL/Cow ratio");
   console.log("- Early adopter greed boost that decays over time");
   console.log("- Anti-dump mechanism: lower TVL = higher rewards");
+  console.log("\n💡 COW Token Behavior (after metadata setup):");
+  console.log("- Appears as SPL token with name 'MilkerFun COW' and symbol 'COW'");
+  console.log("- Shows cow image in wallet");
+  console.log("- No NFT/collectible behavior (no collection)");
+  console.log("- Fully tradeable on DEXs");
 }
 
 main().catch((error) => {

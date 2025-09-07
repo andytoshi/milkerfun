@@ -392,6 +392,14 @@ pub struct FarmAccount {
 }
 ```
 
+### COW Token Implementation
+
+The COW token is implemented as a standard SPL token with 0 decimals:
+- **Mint Authority**: Controlled by program PDA for export/import functionality
+- **Decimals**: 0 (each token represents exactly 1 cow)
+- **Supply**: Dynamic based on exported cows
+- **Metadata**: None (pure SPL token behavior)
+
 ### Core Functions
 
 #### Buy Cows
@@ -555,6 +563,28 @@ const buyCows = async (numCows: number) => {
   return tx;
 };
 ```
+
+## Updated Deployment Process
+
+1. **Deploy program**: `anchor deploy --provider.cluster devnet`
+2. **Initialize protocol**: `yarn deploy-setup`
+3. **Fund pool**: `yarn fund-pool 1000000`
+
+## Key Differences from NFT Metadata
+
+- ❌ **No Collection**: Prevents NFT/collectible behavior
+- ❌ **No Creators**: No royalty/creator info
+- ❌ **No Collection Details**: No NFT-specific metadata
+- ✅ **Basic Info Only**: Just name, symbol, image, and URI
+
+## Result
+
+Your COW tokens will display in wallets as:
+- **Name**: MilkerFun COW
+- **Symbol**: COW  
+- **Image**: Your cow PNG
+- **Location**: Tokens list (not collectibles)
+- **Behavior**: Pure SPL token functionality
 
 ---
 
