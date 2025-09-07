@@ -20,7 +20,7 @@
     "test-compound": "ts-node test-scripts/test-compound-cows.ts",
     "test-export": "ts-node test-scripts/test-export-cows.ts",
     "test-import": "ts-node test-scripts/test-import-cows.ts",
-    "test-full-flow": "ts-node test-scripts/test-full-flow.ts",
+    "test-full-flow": "ts-node test-scripts/test-full-flow.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
