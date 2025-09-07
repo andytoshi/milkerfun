@@ -3,11 +3,12 @@ import { Program } from "@coral-xyz/anchor";
 import { Milkerfun } from "../target/types/milkerfun";
 import { PublicKey } from "@solana/web3.js";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
-import { createMetadataAccountV3 } from "@metaplex-foundation/mpl-token-metadata";
+import { createV1 } from "@metaplex-foundation/mpl-token-metadata";
 import { 
   publicKey, 
   createSignerFromKeypair, 
-  signerIdentity
+  signerIdentity,
+  percentAmount
 } from "@metaplex-foundation/umi";
 import * as fs from "fs";
 import * as os from "os";
@@ -75,29 +76,24 @@ async function main() {
     console.log("URI: https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cowmeta.json");
     console.log("Creator:", wallet.publicKey.toString());
 
-    // Create metadata using UMI with admin as mint authority
-    const result = await createMetadataAccountV3(umi, {
+    // Create metadata using createV1 with admin as mint authority
+    const result = await createV1(umi, {
       mint: publicKey(cowMint.toString()),
-      mintAuthority: signer, // Admin is current mint authority
-      payer: signer,
-      updateAuthority: signer,
-      data: {
-        name: "milkerfun",
-        symbol: "COW",
-        uri: "https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cowmeta.json",
-        sellerFeeBasisPoints: 0, // 0% royalty
-        creators: [
-          {
-            address: publicKey(wallet.publicKey.toString()),
-            verified: true,
-            share: 100,
-          },
-        ],
-        collection: null,
-        uses: null,
-      },
+      authority: signer, // Admin is current mint authority
+      name: "milkerfun",
+      symbol: "COW",
+      uri: "https://raw.githubusercontent.com/andytoshi/milkerfun/refs/heads/v3/cowmeta.json",
+      sellerFeeBasisPoints: percentAmount(0), // 0% royalty
+      tokenStandard: 0,
+      isCollection: false,
+      creators: [
+        {
+          address: publicKey(wallet.publicKey.toString()),
+          verified: true,
+          share: 100,
+        },
+      ],
       isMutable: true,
-      collectionDetails: null,
     }).sendAndConfirm(umi);
 
     console.log("✅ Metadata created successfully!");
