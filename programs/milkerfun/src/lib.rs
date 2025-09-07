@@ -37,39 +37,6 @@ pub mod milkerfun {
         Ok(())
     }
 
-    pub fn transfer_cow_mint_authority(ctx: Context<TransferCowMintAuthority>) -> Result<()> {
-        msg!("Transferring COW mint authority from admin to PDA");
-        
-        // Transfer mint authority to PDA
-        let cpi_accounts = anchor_spl::token::SetAuthority {
-            account_or_mint: ctx.accounts.cow_mint.to_account_info(),
-            current_authority: ctx.accounts.admin.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        
-        anchor_spl::token::set_authority(
-            cpi_ctx,
-            anchor_spl::token::spl_token::instruction::AuthorityType::MintTokens,
-            Some(ctx.accounts.cow_mint_authority.key()),
-        )?;
-        
-        // Also transfer freeze authority to PDA
-        let cpi_accounts_freeze = anchor_spl::token::SetAuthority {
-            account_or_mint: ctx.accounts.cow_mint.to_account_info(),
-            current_authority: ctx.accounts.admin.to_account_info(),
-        };
-        let cpi_ctx_freeze = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts_freeze);
-        
-        anchor_spl::token::set_authority(
-            cpi_ctx_freeze,
-            anchor_spl::token::spl_token::instruction::AuthorityType::FreezeAccount,
-            Some(ctx.accounts.cow_mint_authority.key()),
-        )?;
-        
-        msg!("COW mint authority successfully transferred to PDA: {}", ctx.accounts.cow_mint_authority.key());
-        Ok(())
-    }
 
     pub fn buy_cows(ctx: Context<BuyCows>, num_cows: u64) -> Result<()> {
         require!(num_cows > 0, ErrorCode::InvalidAmount);
@@ -521,15 +488,7 @@ pub struct InitializeConfig<'info> {
     #[account(constraint = milk_mint.decimals <= 9)]
     pub milk_mint: Account<'info, Mint>,
 
-    #[account(
-        init,
-        payer = admin,
-        mint::decimals = 0,
-        mint::authority = admin,
-        mint::freeze_authority = admin,
-        seeds = [b"cow_mint", config.key().as_ref()],
-        bump
-    )]
+    #[account(constraint = cow_mint.decimals == 0)]
     pub cow_mint: Account<'info, Mint>,
 
     #[account(
@@ -549,33 +508,6 @@ pub struct InitializeConfig<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-#[derive(Accounts)]
-pub struct TransferCowMintAuthority<'info> {
-    #[account(
-        seeds = [b"config"], 
-        bump,
-        constraint = config.admin == admin.key() @ ErrorCode::Unauthorized
-    )]
-    pub config: Account<'info, Config>,
-
-    #[account(
-        mut,
-        constraint = cow_mint.key() == config.cow_mint @ ErrorCode::InvalidCowMint
-    )]
-    pub cow_mint: Account<'info, Mint>,
-
-    #[account(
-        seeds = [b"cow_mint_authority", config.key().as_ref()],
-        bump
-    )]
-    /// CHECK: This is a PDA used as authority for COW token mint
-    pub cow_mint_authority: UncheckedAccount<'info>,
-
-    #[account(mut)]
-    pub admin: Signer<'info>,
-    
-    pub token_program: Program<'info, Token>,
-}
 
 #[derive(Accounts)]
 pub struct BuyCows<'info> {
