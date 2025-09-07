@@ -5,6 +5,7 @@ import {
   createInitializeAccountInstruction,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import * as fs from "fs";
 import * as os from "os";
@@ -63,35 +64,22 @@ async function main() {
     program.programId
   );
 
+  const [cowMintAuthorityPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("cow_mint_authority"), configPda.toBuffer()],
+    program.programId
+  );
+
   console.log("Config PDA:", configPda.toString());
   console.log("Pool Authority PDA:", poolAuthorityPda.toString());
+  console.log("COW Mint Authority PDA:", cowMintAuthorityPda.toString());
 
   const [cowMintPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("cow_mint"), configPda.toBuffer()],
     program.programId
   );
 
-  // Find metadata PDA for COW token
-  const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-  const [cowMetadataPda] = PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("metadata"),
-      TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-      cowMintPda.toBuffer(),
-    ],
-    TOKEN_METADATA_PROGRAM_ID
-  );
-
   console.log("COW Mint PDA:", cowMintPda.toString());
-  console.log("COW Metadata PDA:", cowMetadataPda.toString());
 
-  const [cowMintAuthorityPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("cow_mint_authority"), configPda.toBuffer()],
-    program.programId
-  );
-
-  console.log("COW Mint PDA:", cowMintPda.toString());
-  console.log("COW Mint Authority PDA:", cowMintAuthorityPda.toString());
 
   // Check if pool token account already exists
   let poolTokenAccount: PublicKey;
@@ -207,7 +195,7 @@ async function main() {
 
   // Initialize config with proper error handling
   let tx;
-  console.log("Initializing config with verified pool token account and COW mint...");
+  console.log("Initializing config with verified pool token account and COW mint with Token Extensions metadata...");
   try {
     tx = await program.methods
       .initializeConfig()
@@ -216,13 +204,12 @@ async function main() {
         milkMint: milkMint,
         cowMint: cowMintPda,
         cowMintAuthority: cowMintAuthorityPda,
-       cowMetadata: cowMetadataPda,
         poolTokenAccount: poolTokenAccount,
         admin: wallet.publicKey,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
-       tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+        token2022Program: TOKEN_2022_PROGRAM_ID,
       })
       .rpc({
         commitment: 'finalized',
