@@ -195,7 +195,7 @@ async function main() {
 
   // Initialize config with proper error handling
   let tx;
-  console.log("Initializing config with verified pool token account and COW mint with Token Extensions metadata...");
+  console.log("Initializing config with verified pool token account and COW mint (Token 2022)...");
   try {
     tx = await program.methods
       .initializeConfig()
@@ -283,19 +283,18 @@ async function main() {
   console.log("\n⚠️  NEXT STEPS:");
   console.log("1. Fund the pool token account with MILK tokens using 'yarn fund-pool <amount>'");
   console.log("2. Users can run 'yarn user-setup' to create their token accounts");
-  console.log("3. Run 'yarn setup-cow-metadata' to add token name, symbol, and image");
-  console.log("4. Run 'yarn transfer-cow-authority' to enable export/import");
-  console.log("5. Run 'yarn check-status' to verify everything is working");
+  console.log("3. Run 'yarn check-status' to verify everything is working");
+  console.log("4. Test export/import: 'yarn test-export' and 'yarn test-import'");
   console.log("\n💡 Economic Model:");
   console.log("- Dynamic cow pricing based on global supply");
   console.log("- Dynamic rewards based on TVL/Cow ratio");
   console.log("- Early adopter greed boost that decays over time");
   console.log("- Anti-dump mechanism: lower TVL = higher rewards");
-  console.log("\n💡 COW Token Behavior (after metadata setup):");
-  console.log("- Appears as SPL token with name 'MilkerFun COW' and symbol 'COW'");
-  console.log("- Shows cow image in wallet");
-  console.log("- No NFT/collectible behavior (no collection)");
+  console.log("\n💡 COW Token Behavior:");
+  console.log("- Pure Token 2022 SPL token with 0 decimals");
+  console.log("- PDA owned and controlled by program");
   console.log("- Fully tradeable on DEXs");
+  console.log("- Each token = 1 cow");
 }
 
 main().catch((error) => {

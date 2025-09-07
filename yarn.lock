@@ -320,7 +320,7 @@
   dependencies:
     "@solana/codecs" "2.0.0-rc.1"
 
-"@solana/spl-token-metadata@^0.1.6":
+"@solana/spl-token-metadata@^0.1.4", "@solana/spl-token-metadata@^0.1.6":
   version "0.1.6"
   resolved "https://registry.npmjs.org/@solana/spl-token-metadata/-/spl-token-metadata-0.1.6.tgz"
   integrity sha512-7sMt1rsm/zQOQcUWllQX9mD2O6KhSAtY1hFR2hfFwgqfFWzSY9E9GDvFVNYUI1F0iQKcm6HmePU9QbKRXTEBiA==
