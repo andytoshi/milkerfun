@@ -22,6 +22,7 @@
     "test-import": "ts-node test-scripts/test-import-cows.ts",
     "test-full-flow": "ts-node test-scripts/test-full-flow.ts",
     "setup-cow-metadata": "ts-node scripts/setup-cow-metadata.ts",
+    "inspect-cow": "ts-node scripts/inspect-cow.ts",
     "transfer-cow-authority": "ts-node scripts/transfer-cow-authority.ts"
   },
   "dependencies": {
