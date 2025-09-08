@@ -18,7 +18,12 @@
     "test-buy": "ts-node test-scripts/test-buy-cows.ts",
     "test-withdraw": "ts-node test-scripts/test-withdraw-milk.ts",
     "test-compound": "ts-node test-scripts/test-compound-cows.ts",
-    "test-full-flow": "ts-node test-scripts/test-full-flow.ts"
+    "test-export": "ts-node test-scripts/test-export-cows.ts",
+    "test-import": "ts-node test-scripts/test-import-cows.ts",
+    "test-full-flow": "ts-node test-scripts/test-full-flow.ts",
+    "setup-cow-metadata": "ts-node scripts/setup-cow-metadata.ts",
+    "inspect-cow": "ts-node scripts/inspect-cow.ts",
+    "transfer-cow-authority": "ts-node scripts/transfer-cow-authority.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
@@ -26,14 +31,17 @@
     "@solana/web3.js": "^1.95.4"
   },
   "devDependencies": {
-    "chai": "^4.3.4",
-    "mocha": "^9.0.3",
-    "ts-mocha": "^10.0.0",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.4.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.4.1",
     "@types/bn.js": "^5.1.0",
     "@types/chai": "^4.3.0",
     "@types/mocha": "^9.0.0",
-    "typescript": "^5.7.3",
+    "chai": "^4.3.4",
+    "mocha": "^9.0.3",
     "prettier": "^2.6.2",
-    "ts-node": "^10.9.1"
+    "ts-mocha": "^10.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.7.3"
   }
 }

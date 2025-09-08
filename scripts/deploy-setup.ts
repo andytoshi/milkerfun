@@ -10,8 +10,12 @@ import * as fs from "fs";
 import * as os from "os";
 
 // MILK token mint addresses
-const MILK_MINT_DEVNET = new PublicKey("ErGaHLayDmovrt2ttBrwmrrYyjuaqojABWEuPiYgtZvj");
+const MILK_MINT_DEVNET = new PublicKey("4LQuKpg99cDBkcidswiHnUA4gVD8jvu5Azo8tnveAr5d");
 const MILK_MINT_MAINNET = new PublicKey("11111111111111111111111111111111"); //change for mainnet
+
+// COW token mint addresses (create these externally with admin authority)
+const COW_MINT_DEVNET = new PublicKey("FQ26GfkMphHmX1qpEnU4vJoTdhkAZdPFWxmn35i5Hfrw"); // Replace with actual COW mint
+const COW_MINT_MAINNET = new PublicKey("11111111111111111111111111111111"); // Replace with actual COW mint
 
 /**
  * Deployment setup script for MilkerFun
@@ -37,20 +41,26 @@ async function main() {
   console.log("Wallet:", wallet.publicKey.toString());
   console.log("Cluster:", provider.connection.rpcEndpoint);
 
-  // Get MILK mint based on cluster
+  // Get MILK and COW mints based on cluster
   let milkMint: PublicKey;
+  let cowMint: PublicKey;
   
   if (provider.connection.rpcEndpoint.includes('devnet')) {
     milkMint = MILK_MINT_DEVNET;
+    cowMint = COW_MINT_DEVNET;
     console.log("Using MILK token on devnet");
+    console.log("Using COW token on devnet");
   } else if (provider.connection.rpcEndpoint.includes('mainnet')) {
     milkMint = MILK_MINT_MAINNET;
+    cowMint = COW_MINT_MAINNET;
     console.log("Using MILK token on mainnet");
+    console.log("Using COW token on mainnet");
   } else {
     throw new Error("Unsupported cluster. Use devnet or mainnet only.");
   }
 
   console.log("MILK Mint:", milkMint.toString());
+  console.log("COW Mint:", cowMint.toString());
 
   // Find PDAs
   const [configPda] = PublicKey.findProgramAddressSync(
@@ -65,6 +75,14 @@ async function main() {
 
   console.log("Config PDA:", configPda.toString());
   console.log("Pool Authority PDA:", poolAuthorityPda.toString());
+
+
+  const [cowMintAuthorityPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("cow_mint_authority"), configPda.toBuffer()],
+    program.programId
+  );
+
+  console.log("COW Mint Authority PDA:", cowMintAuthorityPda.toString());
 
   // Check if pool token account already exists
   let poolTokenAccount: PublicKey;
@@ -180,12 +198,14 @@ async function main() {
 
   // Initialize config with proper error handling
   let tx;
-  console.log("Initializing config with verified pool token account...");
+  console.log("Initializing config with verified pool token account and COW mint...");
   try {
     tx = await program.methods
       .initializeConfig()
       .accountsPartial({
         milkMint: milkMint,
+        cowMint: cowMint,
+        cowMintAuthority: cowMintAuthorityPda,
         poolTokenAccount: poolTokenAccount,
         admin: wallet.publicKey,
       })
@@ -242,6 +262,7 @@ async function main() {
   console.log("\n=== Configuration ===");
   console.log("Admin:", config.admin.toString());
   console.log("MILK Mint:", config.milkMint.toString());
+  console.log("COW Mint:", config.cowMint.toString());
   console.log("Pool Token Account:", config.poolTokenAccount.toString());
   console.log("Start Time:", new Date(config.startTime.toNumber() * 1000).toISOString());
   console.log("Global Cows Count:", config.globalCowsCount.toString());
@@ -251,19 +272,24 @@ async function main() {
   console.log("Save these addresses for your frontend:");
   console.log("Program ID:", program.programId.toString());
   console.log("MILK Mint:", milkMint.toString());
+  console.log("COW Mint:", cowMint.toString());
   console.log("Config PDA:", configPda.toString());
   console.log("Pool Authority PDA:", poolAuthorityPda.toString());
+  console.log("COW Mint Authority PDA:", cowMintAuthorityPda.toString());
   console.log("Pool Token Account:", poolTokenAccount.toString());
 
   console.log("\n⚠️  NEXT STEPS:");
+  console.log("0. Create COW token externally and update COW_MINT addresses in this script");
   console.log("1. Fund the pool token account with MILK tokens using 'yarn fund-pool <amount>'");
-  console.log("2. Users can run 'yarn user-setup' to create their token accounts");
-  console.log("3. Run 'yarn check-status' to verify everything is working");
+  console.log("2. Run 'yarn transfer-cow-authority' to transfer COW mint authority to PDA");
+  console.log("3. Users can run 'yarn user-setup' to create their token accounts");
+  console.log("4. Run 'yarn check-status' to verify everything is working");
   console.log("\n💡 Economic Model:");
   console.log("- Dynamic cow pricing based on global supply");
   console.log("- Dynamic rewards based on TVL/Cow ratio");
   console.log("- Early adopter greed boost that decays over time");
   console.log("- Anti-dump mechanism: lower TVL = higher rewards");
+  console.log("- Export/Import: Convert cows to tradeable COW tokens and back");
 }
 
 main().catch((error) => {
