@@ -3,8 +3,8 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer, MintTo, Burn}
 
 const SECONDS_PER_DAY: i64 = 86400; // 24 * 60 * 60
 const COW_BASE_PRICE: u64 = 6_000_000_000; // 6,000 MILK (6 decimals)
-const PRICE_PIVOT: f64 = 3_000.0; // C_pivot
-const PRICE_STEEPNESS: f64 = 2.0; // α
+const PRICE_PIVOT: f64 = 2_500.0; // C_pivot
+const PRICE_STEEPNESS: f64 = 2.5; // α
 const REWARD_BASE: u64 = 25_000_000_000; // 25,000 MILK (6 decimals) - B
 const REWARD_SENSITIVITY: f64 = 0.5; // α_reward
 const TVL_NORMALIZATION: f64 = 100_000_000_000.0; // 100,000 MILK (6 decimals) - S
@@ -14,7 +14,7 @@ const GREED_DECAY_PIVOT: f64 = 1_500.0; // C₀
 const INITIAL_TVL: u64 = 100_000_000_000_000; // 100M MILK (6 decimals)
 const MAX_COWS_PER_TRANSACTION: u64 = 50; // Maximum cows per buy transaction
 
-declare_id!("4E98KvnTQq5DfbcSKRC6yTiLsbuqH3GZxxofKSHxb6c2");
+declare_id!("11111111111111111111111111111111");
 
 #[program]
 pub mod milkerfun {
