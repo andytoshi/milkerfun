@@ -10,11 +10,11 @@ import * as fs from "fs";
 import * as os from "os";
 
 // MILK token mint addresses
-const MILK_MINT_DEVNET = new PublicKey("ErGaHLayDmovrt2ttBrwmrrYyjuaqojABWEuPiYgtZvj");
+const MILK_MINT_DEVNET = new PublicKey("4LQuKpg99cDBkcidswiHnUA4gVD8jvu5Azo8tnveAr5d");
 const MILK_MINT_MAINNET = new PublicKey("11111111111111111111111111111111"); //change for mainnet
 
 // COW token mint addresses (create these externally with admin authority)
-const COW_MINT_DEVNET = new PublicKey("Bwm8LqV2Q8pbVUn657bXimmaob2y7F2GtHrQLGVqzwq4"); // Replace with actual COW mint
+const COW_MINT_DEVNET = new PublicKey("FQ26GfkMphHmX1qpEnU4vJoTdhkAZdPFWxmn35i5Hfrw"); // Replace with actual COW mint
 const COW_MINT_MAINNET = new PublicKey("11111111111111111111111111111111"); // Replace with actual COW mint
 
 /**
