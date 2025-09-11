@@ -57,7 +57,7 @@ async function main() {
       currentTvl = Number(poolBalance.amount);
       console.log("Current TVL:", currentTvl / 1_000_000, "MILK");
     } catch (error) {
-      console.log("Could not fetch current TVL");
+      console.log("Could not fetch current_TVL");
     }
 
     // Calculate dynamic cow price
