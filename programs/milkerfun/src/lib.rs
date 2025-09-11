@@ -2,12 +2,12 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer, MintTo, Burn};
 
 const SECONDS_PER_DAY: i64 = 86400; // 24 * 60 * 60
-const COW_BASE_PRICE: u64 = 10_000_000_000; // 10,000 MILK (6 decimals)
-const PRICE_PIVOT: f64 = 2_000.0; // C_pivot
-const PRICE_STEEPNESS: f64 = 1.2; // α
+const COW_BASE_PRICE: u64 = 6_000_000_000; // 6,000 MILK (6 decimals)
+const PRICE_PIVOT: f64 = 2_500.0; // C_pivot
+const PRICE_STEEPNESS: f64 = 2.5; // α
 const REWARD_BASE: u64 = 25_000_000_000; // 25,000 MILK (6 decimals) - B
 const REWARD_SENSITIVITY: f64 = 0.5; // α_reward
-const TVL_NORMALIZATION: f64 = 100_000_000_000_000.0; // 100M MILK (6 decimals) - S
+const TVL_NORMALIZATION: f64 = 100_000_000_000.0; // 100,000 MILK (6 decimals) - S
 const MIN_REWARD_PER_DAY: u64 = 1_000_000_000; // 1,000 MILK per day (6 decimals) - R_min
 const GREED_MULTIPLIER: f64 = 8.0; // β
 const GREED_DECAY_PIVOT: f64 = 1_500.0; // C₀
@@ -56,8 +56,7 @@ pub mod milkerfun {
             update_farm_rewards(farm, config, current_time, ctx.accounts.pool_token_account.amount)?;
         }
 
-        let prev_tvl = ctx.accounts.pool_token_account.amount;
-        let cost_per_cow = calculate_cow_price(config.global_cows_count, ctx.accounts.pool_token_account.amount)?;
+        let cost_per_cow = calculate_cow_price(config.global_cows_count)?;
         let total_cost = cost_per_cow
             .checked_mul(num_cows)
             .ok_or(ErrorCode::MathOverflow)?;
@@ -77,7 +76,6 @@ pub mod milkerfun {
             total_cost,
         )?;
 
-        ctx.accounts.pool_token_account.reload()?;
         config.global_cows_count = config.global_cows_count
             .checked_add(num_cows)
             .ok_or(ErrorCode::MathOverflow)?;
@@ -86,7 +84,10 @@ pub mod milkerfun {
             .checked_add(num_cows)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        let new_tvl = ctx.accounts.pool_token_account.amount; // already includes transfer
+        let new_tvl = ctx.accounts.pool_token_account.amount
+            .checked_add(total_cost)
+            .ok_or(ErrorCode::MathOverflow)?;
+        
         let new_reward_rate = calculate_reward_rate(config.global_cows_count, new_tvl)?;
         farm.last_reward_rate = new_reward_rate;
 
@@ -123,8 +124,8 @@ pub mod milkerfun {
             (withdrawal, penalty)
         };
 
-        let pool_balance_before = ctx.accounts.pool_token_account.amount;
-        let withdrawal_amount = withdrawal_amount.min(pool_balance_before);
+        let pool_balance = ctx.accounts.pool_token_account.amount;
+        let withdrawal_amount = withdrawal_amount.min(pool_balance);
 
         let config_key = config.key();
         let seeds = &[
@@ -147,8 +148,10 @@ pub mod milkerfun {
             withdrawal_amount,
         )?;
 
-        ctx.accounts.pool_token_account.reload()?;
-        let new_tvl = ctx.accounts.pool_token_account.amount;
+        let new_tvl = ctx.accounts.pool_token_account.amount
+            .checked_sub(withdrawal_amount)
+            .ok_or(ErrorCode::MathOverflow)?;
+        
         let new_reward_rate = calculate_reward_rate(config.global_cows_count, new_tvl)?;
         farm.last_reward_rate = new_reward_rate;
 
@@ -175,7 +178,7 @@ pub mod milkerfun {
 
         update_farm_rewards(farm, config, current_time, ctx.accounts.pool_token_account.amount)?;
 
-        let cow_price = calculate_cow_price(config.global_cows_count, ctx.accounts.pool_token_account.amount)?;
+        let cow_price = calculate_cow_price(config.global_cows_count)?;
         let total_cost = cow_price
             .checked_mul(num_cows)
             .ok_or(ErrorCode::MathOverflow)?;
@@ -270,11 +273,6 @@ pub mod milkerfun {
             .checked_sub(num_cows)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        // Decrement global cow count
-        config.global_cows_count = config.global_cows_count
-            .checked_sub(num_cows)
-            .ok_or(ErrorCode::MathOverflow)?;
-
         // Mint COW tokens to user (1 cow = 1 COW token with 0 decimals)
         // Mint COW tokens to user (1 cow = 1 COW token with 6 decimals)
         let config_key = config.key();
@@ -297,9 +295,6 @@ pub mod milkerfun {
             ),
             num_cows * 1_000_000, // COW tokens have 6 decimals, so 1 cow = 1,000,000 tokens
         )?;
-
-        // Recalculate reward rate after global cow count change
-        farm.last_reward_rate = calculate_reward_rate(config.global_cows_count, ctx.accounts.pool_token_account.amount)?;
 
         msg!("Successfully exported {} cows to COW tokens. User cows remaining: {}", 
              num_cows, farm.cows);
@@ -360,35 +355,28 @@ pub mod milkerfun {
     }
 }
 
-/// Calculate dynamic cow price based on global cow count and TVL
-/// P(c, TVL) = BASE * (1 + (c / C_pivot)^α) * (S / (TVL + S))
-fn calculate_cow_price(global_cows: u64, tvl: u64) -> Result<u64> {
+/// Calculate dynamic cow price based on global cow count
+/// P(c) = 6,000 * (1 + (c / 1,500)^1.2)
+fn calculate_cow_price(global_cows: u64) -> Result<u64> {
     if global_cows == 0 {
-        msg!("Cow price calculation: first cow at base price = {}", COW_BASE_PRICE);
         return Ok(COW_BASE_PRICE);
     }
 
-    // Cow growth term
     let c = global_cows as f64;
     let ratio = c / PRICE_PIVOT;
     let power_term = if ratio == 0.0 { 0.0 } else { ratio.powf(PRICE_STEEPNESS) };
     let multiplier = 1.0 + power_term;
-
-    // TVL-based inverse term (higher TVL -> smaller multiplier)
-    let tvl_f64 = tvl as f64;
-    let tvl_multiplier = TVL_NORMALIZATION / (tvl_f64 + TVL_NORMALIZATION);
-
-    let price_f64 = (COW_BASE_PRICE as f64) * multiplier * tvl_multiplier;
     
-    if !price_f64.is_finite() || price_f64 > (u64::MAX as f64) {
+    let price_f64 = (COW_BASE_PRICE as f64) * multiplier;
+    
+    if price_f64 > (u64::MAX as f64) {
         return Err(ErrorCode::MathOverflow.into());
     }
     
     let price = price_f64 as u64;
-    let price = price.max(COW_BASE_PRICE);
     
-    msg!("Cow price calculation: global_cows={}, ratio={:.4}, power_term={:.4}, multiplier={:.4}, tvl={}, tvl_mult={:.6}, price={}", 
-         global_cows, ratio, power_term, multiplier, tvl, tvl_multiplier, price);
+    msg!("Cow price calculation: global_cows={}, ratio={:.4}, power_term={:.4}, multiplier={:.4}, price={}", 
+         global_cows, ratio, power_term, multiplier, price);
     
     Ok(price)
 }
@@ -444,13 +432,13 @@ fn update_farm_rewards(
             farm.last_reward_rate
         };
         
-        let reward_per_cow_per_second = (reward_rate as u128) / (SECONDS_PER_DAY as u128);
-        let new_rewards_u128 = (farm.cows as u128)
+        let reward_per_cow_per_second = reward_rate / (SECONDS_PER_DAY as u64);
+        
+        let new_rewards = farm.cows
             .checked_mul(reward_per_cow_per_second)
             .ok_or(ErrorCode::MathOverflow)?
-            .checked_mul(time_elapsed as u128)
+            .checked_mul(time_elapsed)
             .ok_or(ErrorCode::MathOverflow)?;
-        let new_rewards = u64::try_from(new_rewards_u128).map_err(|_| ErrorCode::MathOverflow)?;
 
         if new_rewards > 0 {
             farm.accumulated_rewards = farm.accumulated_rewards
@@ -622,9 +610,7 @@ pub struct WithdrawMilk<'info> {
 
     #[account(
         mut,
-        constraint = pool_token_account.key() == config.pool_token_account @ ErrorCode::InvalidPoolAccount,
-        constraint = pool_token_account.mint == config.milk_mint @ ErrorCode::InvalidMint,
-        constraint = pool_token_account.owner == pool_authority.key() @ ErrorCode::InvalidOwner
+        constraint = pool_token_account.mint == config.milk_mint @ ErrorCode::InvalidMint
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
